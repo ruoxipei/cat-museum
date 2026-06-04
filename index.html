@@ -1,0 +1,1830 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>猫咪博物馆 · 休闲合成游戏</title>
+<style>
+:root{
+  --bg:#FBF6EE; --panel:#FFFFFF; --ink:#3D2E1E; --ink2:#7A6852;
+  --accent:#E8843C; --accent-deep:#C2410C; --gold:#D4A574;
+  --tint:#FEF3E2; --line:#E8DDC9; --shadow:0 -4px 20px rgba(120,80,30,.15);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{margin:0;padding:0;background:#2A1F14;color:var(--ink);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;overflow:hidden;height:100vh;width:100vw}
+
+#app{position:relative;width:100vw;height:100vh;max-width:480px;margin:0 auto;overflow:hidden;background:var(--bg)}
+
+/* ============ 背景层：博物馆永久背景 ============ */
+.museum-bg{
+  position:absolute;inset:0;z-index:1;
+  background-image:url('assets/museum_bg.png');
+  background-size:cover;background-position:center;
+  transition:filter .4s, transform .4s;
+}
+.museum-bg.dimmed{filter:blur(2px) brightness(.92) saturate(.85)}
+.museum-bg::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(251,246,238,.15) 0%,rgba(251,246,238,.4) 60%,rgba(251,246,238,.7) 100%);
+  pointer-events:none;
+}
+
+/* ============ 卡通布偶猫组件（SVG 版）============
+ * 用法：<div class="kitty walk face-r" style="--size:88px"></div>
+ *   内部 innerHTML 由 JS 注入 SVG（kittySVG()）
+ * 状态类：walk / idle / sit / lay / cheer
+ * 朝向：face-r（默认）/ face-l（镜像）
+ */
+.kitty{
+  --size:88px;
+  position:relative;
+  width:var(--size);height:var(--size);
+  display:inline-block;
+  filter:drop-shadow(0 4px 6px rgba(80,40,30,.22));
+}
+.kitty *{pointer-events:none}
+.cat-wander.kitty{pointer-events:none}
+.kitty svg{width:100%;height:100%;display:block;overflow:visible}
+
+/* 朝向：face-l 镜像 */
+.kitty.face-l svg{transform:scaleX(-1)}
+
+/* SVG 内部各组的命名（在 kittySVG() 模板里）：
+   .k-tail / .k-head / .k-body / .k-eye / .k-frontleg-l / .k-frontleg-r / .k-backleg-l / .k-backleg-r
+*/
+
+/* 眨眼（共用） */
+.kitty .k-eye{transform-origin:center;transform-box:fill-box;animation:kBlink 4.5s infinite}
+@keyframes kBlink{0%,93%,97%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+
+/* 尾巴默认轻摇（坐/idle） */
+.kitty .k-tail{transform-origin:50% 95%;transform-box:fill-box;animation:kTailIdle 2.4s ease-in-out infinite}
+@keyframes kTailIdle{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(8deg)}}
+
+/* 整体呼吸（坐/idle） */
+.kitty .k-body-group{transform-origin:50% 100%;transform-box:fill-box;animation:kBreath 3s ease-in-out infinite}
+@keyframes kBreath{0%,100%{transform:scale(1,1)}50%{transform:scale(1.025,.985)}}
+
+/* ============ 走路 ============ */
+.kitty.walk .k-tail{animation:kTailWag 1.1s ease-in-out infinite}
+@keyframes kTailWag{0%,100%{transform:rotate(-18deg)}50%{transform:rotate(18deg)}}
+
+.kitty.walk .k-body-group{animation:kWalkBob .42s ease-in-out infinite}
+@keyframes kWalkBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.2%)}}
+
+.kitty.walk .k-frontleg-l,
+.kitty.walk .k-backleg-r{animation:kLegA .42s ease-in-out infinite;transform-origin:50% 0;transform-box:fill-box}
+.kitty.walk .k-frontleg-r,
+.kitty.walk .k-backleg-l{animation:kLegB .42s ease-in-out infinite;transform-origin:50% 0;transform-box:fill-box}
+@keyframes kLegA{0%,100%{transform:rotate(-14deg)}50%{transform:rotate(16deg)}}
+@keyframes kLegB{0%,100%{transform:rotate(16deg)}50%{transform:rotate(-14deg)}}
+
+/* ============ 坐 ============（默认状态，前腿/坐姿造型直接靠 SVG 内部分组显示） */
+/* 坐姿和 idle 共用：身体微微呼吸，尾巴轻摇，walk-only 元素隐藏 */
+.kitty.sit .k-walking,
+.kitty.idle .k-walking,
+.kitty.lay .k-walking,
+.kitty.cheer .k-walking{display:none}
+
+.kitty.walk .k-sitting,
+.kitty.lay .k-sitting,
+.kitty.cheer .k-sitting{display:none}
+
+/* ============ 趴 ============ */
+.kitty.lay .k-body-group{transform:translateY(8%) scaleY(.7);animation:kBreath 4s ease-in-out infinite}
+.kitty.lay .k-tail{animation:kTailFlick 3s ease-in-out infinite}
+@keyframes kTailFlick{0%,82%,100%{transform:rotate(-12deg)}90%{transform:rotate(-28deg)}}
+.kitty.lay .k-eye{animation:kBlinkSlow 5s infinite}
+@keyframes kBlinkSlow{0%,40%,80%,100%{transform:scaleY(.5)}50%,70%{transform:scaleY(.1)}}
+
+/* ============ 欢呼（蹦跳）============ */
+.kitty.cheer .k-body-group{animation:kJumpBody .55s ease-out infinite}
+@keyframes kJumpBody{0%,100%{transform:translateY(0) scale(1,1)}30%{transform:translateY(-14%) scale(.96,1.04)}60%{transform:translateY(-8%) scale(1.02,.98)}}
+.kitty.cheer .k-tail{animation:kTailHappy .28s ease-in-out infinite}
+@keyframes kTailHappy{0%,100%{transform:rotate(-30deg)}50%{transform:rotate(35deg)}}
+.kitty.cheer .k-frontleg-l,
+.kitty.cheer .k-frontleg-r{animation:kPawCheer .55s ease-out infinite;transform-origin:50% 0;transform-box:fill-box}
+@keyframes kPawCheer{0%,100%{transform:rotate(0)}50%{transform:rotate(-25deg)}}
+
+/* ============ 永远在馆里游荡的橘猫 ============ */
+.cat-wander{
+  position:absolute;
+  z-index:3;
+  bottom:24%;left:35%;
+  transition:left 3.5s cubic-bezier(.4,.05,.4,1), bottom .8s ease-out;
+}
+
+/* mini 版（订单条 / 棋盘小图标用） */
+.kitty.mini{--size:36px}
+.kitty.tiny{--size:24px}
+
+/* 展位浮窗（永远在背景里渲染）—— 博物馆收起时只显示一排小圆点 */
+.bg-exhibits{
+  position:absolute;left:0;right:0;top:18%;
+  z-index:2;
+  display:flex;justify-content:center;gap:8px;flex-wrap:wrap;padding:0 24px;
+  pointer-events:none;
+}
+.bg-slot{
+  width:46px;height:46px;border-radius:10px;
+  background:rgba(255,255,255,.7);border:2px solid var(--gold);
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(4px);
+  position:relative;
+  transition:transform .3s, box-shadow .3s;
+}
+.bg-slot.empty{background:rgba(255,255,255,.35);border-style:dashed;border-color:rgba(212,165,116,.5)}
+.bg-slot .ic{
+  width:88%;height:88%;
+  border-radius:6px;overflow:hidden;
+}
+.bg-slot.shine{animation:slotShine 1.2s ease-out;box-shadow:0 0 24px var(--accent),0 0 12px #FFE3A3}
+@keyframes slotShine{
+  0%{transform:scale(1);box-shadow:0 0 0 0 rgba(232,132,60,0)}
+  30%{transform:scale(1.35);box-shadow:0 0 30px var(--accent),0 0 16px #FFE3A3}
+  100%{transform:scale(1);box-shadow:0 0 0 0 rgba(232,132,60,0)}
+}
+
+/* ============ 顶栏：木质挂牌风格 ============ */
+.topbar{
+  position:absolute;top:0;left:0;right:0;height:52px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 12px 4px;z-index:30;
+  /* 横向木板纹 + 整体深棕渐变 */
+  background:
+    repeating-linear-gradient(0deg,
+      transparent 0,transparent 8px,
+      rgba(40,22,8,.18) 8px,rgba(40,22,8,.18) 9px),
+    linear-gradient(180deg,#5C4020 0%,#4A331A 60%,#3D2818 100%);
+  border-bottom:3px solid #2A1A0C;
+  box-shadow:
+    inset 0 2px 0 rgba(255,210,150,.35),
+    inset 0 -2px 6px rgba(0,0,0,.4),
+    0 4px 8px rgba(0,0,0,.25);
+}
+/* 顶栏两端的金钉装饰 */
+.topbar::before,.topbar::after{
+  content:"";position:absolute;top:50%;width:8px;height:8px;
+  background:radial-gradient(circle at 35% 35%,#FFE3A3 0%,#D4A574 50%,#8B6020 100%);
+  border-radius:50%;transform:translateY(-50%);
+  box-shadow:0 1px 2px rgba(0,0,0,.5),inset 0 -1px 1px rgba(0,0,0,.4);
+}
+.topbar::before{left:6px}
+.topbar::after{right:6px}
+
+.res-group{display:flex;gap:8px;align-items:center;position:relative;z-index:1}
+
+/* 资源铭牌：羊皮纸金色小牌 */
+.res{
+  display:flex;align-items:center;gap:5px;
+  background:linear-gradient(180deg,#FBF4E8 0%,#E8C99A 100%);
+  border:1.5px solid #2A1A0C;
+  border-radius:6px;
+  padding:4px 10px;
+  font-size:13px;font-weight:800;color:#3D2818;
+  white-space:nowrap;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.7),
+    inset 0 -1px 0 rgba(0,0,0,.18),
+    0 2px 0 #1A0E04,0 3px 4px rgba(0,0,0,.3);
+  text-shadow:0 1px 0 rgba(255,255,255,.4);
+}
+.res .ic{font-size:14px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
+
+/* 馆长等级条：中央悬挂铭牌 */
+.lv-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;position:relative;z-index:1}
+.lv-badge{
+  background:linear-gradient(180deg,#D4A574 0%,#A77846 60%,#8B5E32 100%);
+  border:1.5px solid #2A1A0C;
+  padding:4px 14px;
+  border-radius:4px;
+  font-size:12px;font-weight:800;
+  color:#FFFBEF;
+  letter-spacing:1px;
+  white-space:nowrap;position:relative;overflow:hidden;
+  box-shadow:
+    inset 0 1px 0 rgba(255,235,180,.5),
+    inset 0 -2px 0 rgba(0,0,0,.3),
+    0 3px 0 #1A0E04,0 5px 8px rgba(0,0,0,.4);
+  text-shadow:0 1px 1px rgba(0,0,0,.5);
+}
+.lv-badge .lv-fill{
+  position:absolute;left:0;top:0;bottom:0;
+  background:linear-gradient(90deg,rgba(255,200,100,.45),rgba(255,235,180,.55));
+  width:0%;transition:width .8s ease-out;
+}
+.lv-badge span{position:relative;z-index:1}
+/* 等级牌左右挂钉 */
+.lv-badge::before,.lv-badge::after{
+  content:"";position:absolute;top:50%;width:5px;height:5px;
+  background:#FFE3A3;border:1px solid #2A1A0C;border-radius:50%;
+  transform:translateY(-50%);z-index:2;
+}
+.lv-badge::before{left:3px}
+.lv-badge::after{right:3px}
+
+/* 体力槽（横向） */
+.energy-bar{
+  height:4px;background:rgba(0,0,0,.45);width:54px;border-radius:2px;overflow:hidden;
+  margin-top:3px;border:1px solid #2A1A0C;
+  box-shadow:inset 0 1px 1px rgba(0,0,0,.4);
+}
+.energy-bar > div{
+  height:100%;
+  background:linear-gradient(90deg,#FFB860 0%,#FFE3A3 50%,#D4A574 100%);
+  transition:width 1s linear;
+  box-shadow:0 0 4px rgba(255,200,100,.6);
+}
+
+/* ============ 任务条：羊皮纸卷轴 ============ */
+.guide-bar{
+  position:absolute;top:60px;left:14px;right:14px;
+  z-index:28;
+  padding:8px 22px 8px 18px;
+  font-size:13px;color:#3D2818;font-weight:700;line-height:1.35;
+  /* 羊皮纸纹理：浅米色+横向纤维 */
+  background:
+    repeating-linear-gradient(0deg,
+      transparent 0,transparent 5px,
+      rgba(140,90,40,.06) 5px,rgba(140,90,40,.06) 6px),
+    radial-gradient(ellipse at 30% 50%,#FBF4E8,#E8D2A4);
+  border:1.5px solid #8B6020;
+  border-left:none;border-right:none;
+  border-radius:2px;
+  display:flex;align-items:center;gap:8px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.5),
+    inset 0 -1px 0 rgba(120,80,30,.18),
+    0 3px 6px rgba(0,0,0,.18);
+  text-shadow:0 1px 0 rgba(255,255,255,.4);
+}
+/* 卷轴左右卷边（深棕木轴） */
+.guide-bar::before,.guide-bar::after{
+  content:"";position:absolute;top:-3px;bottom:-3px;width:14px;
+  background:linear-gradient(180deg,#5C4020 0%,#3D2818 50%,#5C4020 100%);
+  border:1.5px solid #2A1A0C;border-radius:7px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,210,150,.4),
+    inset 0 -1px 0 rgba(0,0,0,.4),
+    0 2px 3px rgba(0,0,0,.35);
+}
+.guide-bar::before{left:-7px}
+.guide-bar::after{right:-7px}
+.guide-bar .gtag{
+  background:linear-gradient(180deg,#E8843C,#C2410C);
+  color:#FFFBEF;
+  font-size:11px;font-weight:800;
+  padding:3px 9px;border-radius:4px;
+  border:1px solid #2A1A0C;
+  flex-shrink:0;
+  box-shadow:
+    inset 0 1px 0 rgba(255,235,180,.5),
+    inset 0 -1px 0 rgba(0,0,0,.3),
+    0 2px 0 #5C2510;
+  text-shadow:0 1px 1px rgba(0,0,0,.4);
+  letter-spacing:1px;
+}
+.guide-bar .gtxt{flex:1;line-height:1.35;color:#3D2818}
+
+/* ============ 合成棋盘悬浮面板：木质雕花风 ============ */
+.merge-panel{
+  position:absolute;left:0;right:0;bottom:0;
+  /* 顶部：深棕木边 → 中部：暖米羊皮纸 */
+  background:
+    linear-gradient(180deg,
+      #5C4020 0%,#3D2818 32px,
+      #FBF4E8 32px,#FBF4E8 60px,
+      #FBF6EE 100%);
+  border-top-left-radius:18px;border-top-right-radius:18px;
+  box-shadow:
+    0 -4px 12px rgba(0,0,0,.4),
+    inset 0 32px 0 0 transparent,
+    inset 0 33px 0 -2px rgba(255,210,150,.45),
+    inset 0 -1px 0 rgba(140,90,40,.2);
+  z-index:20;
+  transition:transform .45s cubic-bezier(.22,1,.36,1);
+  display:flex;flex-direction:column;
+  padding-top:36px;
+  height:calc(100% - 108px);
+  top:108px;
+  border:2.5px solid #2A1A0C;
+  border-bottom:none;
+}
+.merge-panel.collapsed{
+  transform:translateY(calc(100% - 86px));
+}
+/* 木质顶部装饰：左右金钉 */
+.merge-panel::before,.merge-panel::after{
+  content:"";position:absolute;top:8px;width:9px;height:9px;
+  background:radial-gradient(circle at 35% 35%,#FFE3A3 0%,#D4A574 50%,#8B6020 100%);
+  border-radius:50%;
+  box-shadow:0 1px 2px rgba(0,0,0,.5),inset 0 -1px 1px rgba(0,0,0,.4);
+  z-index:5;
+}
+.merge-panel::before{left:14px}
+.merge-panel::after{right:14px}
+
+/* 拉手：木质雕花 + 麻绳纹 */
+.panel-handle{
+  position:absolute;top:0;left:0;right:0;height:32px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;z-index:6;
+  /* 中间一条凹槽显得有质感 */
+}
+.panel-handle .bar{
+  width:62px;height:6px;border-radius:3px;
+  background:linear-gradient(180deg,#FFE3A3 0%,#D4A574 50%,#8B6020 100%);
+  border:1px solid #2A1A0C;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.5),
+    inset 0 -1px 0 rgba(0,0,0,.3),
+    0 1px 2px rgba(0,0,0,.4);
+  transition:background .2s;
+}
+.panel-handle:active .bar{
+  background:linear-gradient(180deg,#FFB860 0%,#E8843C 100%);
+}
+.panel-handle .label{
+  font-size:11px;color:#FFE3A3;margin-top:4px;font-weight:800;
+  display:flex;align-items:center;gap:4px;letter-spacing:1px;
+  text-shadow:0 1px 1px rgba(0,0,0,.5);
+}
+.panel-handle .label .arrow{display:inline-block;transition:transform .35s;font-size:10px;color:#FFE3A3}
+.merge-panel.collapsed .panel-handle .label .arrow{transform:rotate(180deg)}
+.merge-panel.collapsed .panel-handle .label::before{content:"上滑展开 · 合成台";display:inline}
+.merge-panel.collapsed .panel-handle .label .lbl-default{display:none}
+.merge-panel:not(.collapsed) .panel-handle .label::before{display:none}
+
+/* 订单条：羊皮纸背景 */
+.orders-bar{padding:10px 12px 8px;overflow-x:auto;white-space:nowrap;flex:0 0 auto;background:linear-gradient(180deg,#F4E8CE,#E8D2A4);border-bottom:1.5px solid #8B6020;box-shadow:inset 0 1px 0 rgba(255,255,255,.4),inset 0 -1px 0 rgba(120,80,30,.2)}
+.orders-bar::-webkit-scrollbar{display:none}
+.orders-bar .o-title{display:inline-block;font-size:11px;font-weight:800;color:#5C4020;margin-right:8px;vertical-align:top;padding-top:18px;letter-spacing:1px;text-shadow:0 1px 0 rgba(255,255,255,.5)}
+
+/* 订单卡：黄铜铭牌风格 */
+.order-card{
+  display:inline-flex;flex-direction:column;align-items:center;
+  background:linear-gradient(180deg,#FBF4E8 0%,#E8C99A 100%);
+  border:2px solid #5C4020;
+  border-radius:6px;
+  padding:5px 8px;margin-right:8px;min-width:78px;
+  vertical-align:top;position:relative;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.6),
+    inset 0 -1px 0 rgba(120,80,30,.2),
+    0 2px 0 #2A1A0C,0 4px 6px rgba(0,0,0,.3);
+}
+.order-card::before,.order-card::after{
+  content:"";position:absolute;top:3px;width:4px;height:4px;
+  background:#D4A574;border:.5px solid #2A1A0C;border-radius:50%;
+}
+.order-card::before{left:3px}
+.order-card::after{right:3px}
+.order-card .cat-face{display:flex;align-items:center;justify-content:center;height:34px;line-height:1}
+.order-card .o-says{font-size:9px;color:#5C4020;margin:1px 0;font-weight:700}
+.order-need{display:flex;gap:4px;align-items:center}
+.order-need .ni{
+  width:34px;height:34px;border-radius:5px;
+  background-color:#FBF6EE;
+  border:1.5px solid #8B6020;
+  overflow:hidden;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -1px 1px rgba(0,0,0,.15);
+}
+.order-need .ni img{width:100%;height:100%;object-fit:contain;display:block}
+.order-card .reward{font-size:10px;color:#C2410C;font-weight:800;margin-top:2px;text-shadow:0 1px 0 rgba(255,255,255,.5)}
+.order-card.ready{
+  background:linear-gradient(180deg,#D7F5D5,#9BD898);
+  border-color:#3D6E2A;
+  animation:pop 1s infinite;
+}
+.order-card.ready .o-says,.order-card.ready .reward{color:#1F4A18}
+@keyframes pop{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+
+/* 棋盘：木质雕花框 */
+.board-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:8px 6px 14px;position:relative;min-height:0}
+.board{
+  display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(var(--rows,6),1fr);gap:5px;
+  background:
+    repeating-linear-gradient(90deg,transparent 0,transparent 18px,rgba(120,80,30,.08) 18px,rgba(120,80,30,.08) 19px),
+    linear-gradient(180deg,#F4E8CE 0%,#E8D2A4 100%);
+  border:3px solid #5C4020;
+  border-radius:10px;padding:7px;
+  width:min(100%, 380px);aspect-ratio:5/var(--rows,6);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.45),
+    inset 0 -2px 0 rgba(120,80,30,.25),
+    0 4px 0 #2A1A0C,0 6px 14px rgba(0,0,0,.3);
+}
+/* 棋盘四角金钉 */
+.board::before,.board::after{
+  content:"";position:absolute;width:7px;height:7px;
+  background:radial-gradient(circle at 35% 35%,#FFE3A3 0%,#D4A574 50%,#8B6020 100%);
+  border-radius:50%;
+  box-shadow:0 1px 2px rgba(0,0,0,.5),inset 0 -1px 1px rgba(0,0,0,.4);
+  pointer-events:none;
+}
+.board::before{top:4px;left:4px;box-shadow:0 1px 2px rgba(0,0,0,.5),inset 0 -1px 1px rgba(0,0,0,.4),22px 0 0 #FFE3A3,0 0 0 0 transparent}
+.board::after{bottom:4px;right:4px}
+
+.cell{
+  background:linear-gradient(180deg,#FFFBEF 0%,#F0E5CC 100%);
+  border:1px solid rgba(120,80,30,.25);
+  border-radius:6px;
+  position:relative;display:flex;align-items:center;justify-content:center;
+  transition:background .15s;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.6);
+}
+.cell.drop-hover{background:#FCEACB;outline:2px dashed var(--accent)}
+.cell.merge-flash{animation:mergeFlash .35s}
+.cell.guide-target::after{content:"";position:absolute;inset:-3px;border:3px solid var(--accent);border-radius:8px;animation:guidePulse 1.2s infinite;pointer-events:none}
+@keyframes guidePulse{0%,100%{box-shadow:0 0 0 0 rgba(232,132,60,.6)}50%{box-shadow:0 0 0 8px rgba(232,132,60,0)}}
+@keyframes mergeFlash{0%{transform:scale(1);background:#FFFBEF}50%{transform:scale(1.2);background:#FEF3E2;box-shadow:0 0 12px var(--accent)}100%{transform:scale(1);background:#FFFBEF}}
+
+.item{
+  width:88%;height:88%;
+  cursor:grab;position:relative;touch-action:none;transition:transform .1s;
+  overflow:hidden;border-radius:6px;
+  /* sprite() inline 注入 background */
+}
+.item.producer{overflow:visible;border-radius:50%;cursor:pointer}
+.item.dragging{cursor:grabbing;z-index:100;opacity:.85;transform:scale(1.1)}
+.item .name-tag{position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--ink);background:rgba(255,255,255,.85);padding:0 3px;border-radius:4px;white-space:nowrap;line-height:1.2;pointer-events:none}
+.item .lv{position:absolute;top:-3px;right:-3px;background:var(--accent);color:#FFF;font-size:9px;font-weight:700;padding:1px 4px;border-radius:8px;border:1.5px solid #FFF;line-height:1.1}
+.item .uses{
+  position:absolute;top:-4px;left:-4px;
+  min-width:18px;height:18px;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#FFE3A3 0%,#D4A574 100%);
+  color:#5C2510;font-size:11px;font-weight:800;
+  padding:0 5px;border-radius:10px;
+  border:1.5px solid #FFFBEF;
+  box-shadow:0 2px 4px rgba(92,37,16,.35);
+  line-height:1;z-index:2;
+}
+.item.cooling{filter:grayscale(.7) brightness(.7);cursor:not-allowed}
+.item .cd{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(61,46,30,.55);color:#FFF;font-size:11px;font-weight:700;border-radius:6px}
+.item.producer .ptag{
+  position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);
+  font-size:10px;color:#FFFBEF;
+  background:linear-gradient(135deg,#5C2510 0%,#8B4020 100%);
+  padding:2px 8px;border-radius:9px;
+  border:1.5px solid #FFE3A3;
+  white-space:nowrap;font-weight:700;line-height:1.2;letter-spacing:.5px;
+  box-shadow:0 2px 4px rgba(92,37,16,.4);
+  pointer-events:none;z-index:2;
+}
+.item.producer .tap-hint{
+  position:absolute;top:-10px;right:-10px;
+  background:linear-gradient(135deg,#FF8030 0%,#D85020 100%);
+  color:#FFF;font-size:9px;padding:2px 6px;border-radius:9px;
+  border:1.5px solid #FFFBEF;
+  font-weight:800;letter-spacing:.5px;
+  box-shadow:0 2px 5px rgba(216,80,32,.5);
+  animation:bounce 1.2s infinite;pointer-events:none;z-index:3;
+}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+
+/* 浮动产出动画 */
+.float-out{position:fixed;width:36px;height:36px;background-size:contain;background-repeat:no-repeat;background-position:center;pointer-events:none;z-index:50;animation:floatOut .6s ease-out forwards}
+@keyframes floatOut{0%{transform:translate(0,0) scale(.5);opacity:0}30%{opacity:1;transform:translate(0,-20px) scale(1.1)}100%{opacity:0;transform:translate(var(--dx,0),var(--dy,-50px)) scale(.8)}}
+
+/* 飞向博物馆动画（抛物线模拟） */
+.fly-to-museum{
+  position:fixed;width:48px;height:48px;
+  background-size:contain;background-repeat:no-repeat;background-position:center;
+  pointer-events:none;z-index:200;
+  filter:drop-shadow(0 6px 12px rgba(0,0,0,.35)) drop-shadow(0 0 8px #FFE3A3);
+  transition:left .9s cubic-bezier(.45,-.2,.55,1.05), top .9s cubic-bezier(.45,.6,.55,.5), transform .9s ease-in, opacity .25s linear .65s;
+}
+.fly-to-museum.start{transform:scale(1) rotate(0deg);opacity:1}
+.fly-to-museum.fly{transform:scale(1.4) rotate(360deg);opacity:0}
+/* 拖尾粒子 */
+.fly-trail{position:fixed;width:8px;height:8px;border-radius:50%;background:radial-gradient(circle,#FFE3A3 0%,rgba(255,227,163,0) 70%);pointer-events:none;z-index:199;animation:trailFade .6s ease-out forwards}
+@keyframes trailFade{0%{transform:scale(1.4);opacity:.9}100%{transform:scale(.3);opacity:0}}
+
+/* toast */
+.toast{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(61,46,30,.92);color:#FFF;padding:10px 18px;border-radius:24px;font-size:14px;font-weight:600;z-index:250;pointer-events:none;animation:toastIn 1.4s ease-out forwards;white-space:nowrap}
+@keyframes toastIn{0%{opacity:0;transform:translate(-50%,-30%)}20%{opacity:1;transform:translate(-50%,-50%)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-70%)}}
+
+/* ============================================================
+ * 博物馆展厅场景（伪 2.5D 等距 · 卡通博物馆风）
+ * 参考：双点博物馆 / Stardew 室内 / 动森口袋营地
+ * 视觉构成：
+ *   1. 远墙（上半部）+ 木质踢脚线 + 拱顶横梁
+ *   2. 等距地板：菱形/棋盘格地砖，明显纵深
+ *   3. 左右斜墙（梯形）暗示房间立体
+ *   4. 远柜小（贴墙）/ 近柜大（前景）/ 中间走道
+ * ============================================================ */
+.hall-overlay{
+  position:absolute;inset:150px 0 0 0;z-index:25;
+  display:none;flex-direction:column;
+  overflow:hidden;
+  /* 主背景：上半墙 + 下半地板（保留分层渐变作为兜底） */
+  background:
+    /* 顶部柔和射灯 */
+    radial-gradient(ellipse 80% 30% at 50% 0%, rgba(255,235,180,.45), transparent 70%),
+    /* 上半墙：暖米色奶油 */
+    linear-gradient(180deg,
+      #E9D2A4 0%,           /* 拱顶阴影 */
+      #F2DDB4 4%,           /* 顶部高光 */
+      #ECD0A0 30%,          /* 墙面主色 */
+      #D4B381 48%,          /* 墙脚 */
+      /* 地板起始 */
+      #8B6A45 50%,
+      #6E5132 100%);
+  animation:hallIn .35s ease-out;
+}
+.hall-overlay.show{display:flex}
+@keyframes hallIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+/* 不同展厅的氛围色调 */
+.hall-overlay[data-hall="cat"]{ /* 猫咪馆：暖米色（默认） */ }
+.hall-overlay[data-hall="fossil"]{
+  background:
+    radial-gradient(ellipse 80% 30% at 50% 0%, rgba(200,255,210,.4), transparent 70%),
+    linear-gradient(180deg,
+      #B8C9A8 0%,#C7D6B6 4%,#A8BC94 30%,#7E9268 48%,
+      #4F6440 50%,#3D5230 100%);
+}
+.hall-overlay[data-hall="relic"]{
+  background:
+    radial-gradient(ellipse 80% 30% at 50% 0%, rgba(255,210,150,.45), transparent 70%),
+    linear-gradient(180deg,
+      #8B6444 0%,#A07850 4%,#7A5538 30%,#5C3F28 48%,
+      #3D2818 50%,#2A1A0C 100%);
+}
+
+/* === 拱顶横梁 + 后墙木板纹（顶部装饰） === */
+.hall-overlay::before{
+  content:"";position:absolute;left:0;right:0;top:0;height:50%;
+  background:
+    /* 三道横梁阴影（横向粗黑线模拟天花板梁） */
+    linear-gradient(180deg,
+      rgba(80,55,25,.45) 0,rgba(80,55,25,.45) 14px,
+      transparent 14px,transparent 18px,
+      rgba(80,55,25,.18) 18px,rgba(80,55,25,.18) 22px,
+      transparent 22px),
+    /* 墙面竖向木板纹 */
+    repeating-linear-gradient(90deg,
+      transparent 0,transparent 64px,
+      rgba(100,65,30,.1) 64px,rgba(100,65,30,.1) 65px),
+    /* 墙面横向横木腰线（一条更明显的） */
+    linear-gradient(180deg,
+      transparent 0,transparent 38%,
+      rgba(100,65,30,.18) 38%,rgba(100,65,30,.18) 40%,
+      transparent 40%);
+  pointer-events:none;
+  z-index:1;
+}
+
+/* === 等距地板：菱形棋盘格（核心视觉）=== */
+.hall-overlay::after{
+  content:"";position:absolute;left:-12%;right:-12%;top:48%;bottom:0;
+  /* 透视压扁 + 倾斜 = 菱形地砖 */
+  transform:perspective(800px) rotateX(54deg);
+  transform-origin:50% 0%;
+  background:
+    /* 木板地缝（横向） */
+    repeating-linear-gradient(0deg,
+      transparent 0,transparent 36px,
+      rgba(40,22,8,.35) 36px,rgba(40,22,8,.35) 37px),
+    /* 木板地缝（纵向） */
+    repeating-linear-gradient(90deg,
+      transparent 0,transparent 60px,
+      rgba(40,22,8,.25) 60px,rgba(40,22,8,.25) 61px),
+    /* 地板主色：暖橡木双色 */
+    linear-gradient(135deg,
+      #B98A55 0%,#A77846 50%,#8E6535 100%);
+  /* 渐隐到远端（远处暗一点更有空间感） */
+  mask-image:linear-gradient(180deg,rgba(0,0,0,.5) 0%,#000 30%,#000 100%);
+  -webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.5) 0%,#000 30%,#000 100%);
+  pointer-events:none;
+  z-index:0;
+}
+
+/* === 左右斜墙（梯形/侧壁，暗示房间立体）=== */
+/* 用 hall-overlay 上额外加两个伪元素位的方法不够，换用真实 div，定义在下方 */
+
+/* 关闭按钮（保持原位） */
+.hall-close{
+  position:fixed;top:108px;right:10px;
+  height:34px;padding:0 16px 0 12px;
+  border-radius:18px;
+  background:linear-gradient(135deg,#FFFBEF 0%,#F4D5A8 100%);
+  border:2px solid #5C4020;
+  display:none;align-items:center;gap:5px;
+  font-size:12px;font-weight:800;color:#3D2818;
+  cursor:pointer;z-index:35;
+  box-shadow:0 4px 0 #5C4020,0 6px 14px rgba(0,0,0,.25);
+  transition:transform .15s;
+}
+.hall-overlay.show .hall-close{display:flex}
+.hall-close:active{transform:translateY(2px);box-shadow:0 2px 0 #5C4020}
+.hall-close::before{content:"◀";font-size:11px;margin-right:2px}
+
+body:has(.hall-overlay.show) .museum-btn{display:none}
+
+/* === 顶部展厅大标题（馆牌） === */
+.hall-title{
+  position:relative;z-index:2;
+  margin:18px auto 4px;padding:8px 28px;
+  background:linear-gradient(180deg,#5C4020,#3D2818);
+  color:#F4D5A8;
+  font-size:18px;font-weight:800;letter-spacing:4px;
+  border:2px solid #D4A574;border-radius:6px;
+  box-shadow:0 4px 12px rgba(0,0,0,.4),inset 0 0 12px rgba(0,0,0,.3);
+  text-shadow:0 1px 2px #000,0 0 8px rgba(255,200,100,.5);
+}
+.hall-title::before,.hall-title::after{
+  content:"";position:absolute;top:50%;width:8px;height:8px;
+  background:#D4A574;border:1px solid #5C4020;border-radius:50%;
+  transform:translateY(-50%);
+}
+.hall-title::before{left:6px}
+.hall-title::after{right:6px}
+
+/* === 门牌式 tab === */
+.hall-overlay .hall-tabs{
+  position:relative;z-index:2;
+  display:flex;gap:8px;padding:8px 14px 4px 14px;justify-content:center;
+}
+.hall-tab{
+  padding:7px 14px;text-align:center;
+  background:linear-gradient(180deg,#FBF4E8,#E8C99A);
+  border:2px solid #5C4020;border-radius:8px;
+  font-size:12px;font-weight:700;cursor:pointer;color:#3D2818;
+  box-shadow:0 3px 0 #5C4020;
+  transform:translateY(0);
+  transition:all .12s;
+  position:relative;
+}
+.hall-tab.active{
+  background:linear-gradient(180deg,#D4A574,#C2410C);
+  color:#FFFBEF;
+  border-color:#3D2818;
+  transform:translateY(2px);
+  box-shadow:0 1px 0 #3D2818;
+}
+.hall-tab.locked{
+  background:linear-gradient(180deg,#A89A82,#8B7E66);
+  border-color:#5C4020;color:#5C4020;cursor:not-allowed;
+  box-shadow:0 3px 0 #3D2818;
+}
+
+/* === 提示条（铜牌风格） === */
+.hall-tip{
+  position:relative;z-index:2;
+  margin:6px 14px 4px;padding:6px 12px;
+  font-size:12px;color:#3D2818;text-align:center;line-height:1.5;
+  background:linear-gradient(180deg,rgba(244,213,168,.85),rgba(232,201,154,.85));
+  border:1px solid #8B6444;border-radius:6px;
+  backdrop-filter:blur(2px);
+}
+.hall-tip b{color:#C2410C}
+
+/* === 展厅地面：伪等距 2.5D 卡通展厅 ===
+ * 房间结构（自上而下）：
+ *   远墙画框 → 远柜（小，靠墙） → 中央走道（地毯+访客）→ 近柜（大，前景）
+ * 关键：用 perspective 让整体微倾，让远小近大成立 */
+.exhibits-grid{
+  position:relative;z-index:2;
+  flex:1;
+  overflow-y:auto;overflow-x:hidden;
+  display:flex;flex-direction:column;
+  padding:0;
+  background:transparent;
+  /* 整体从上向下的轻微透视，让远柜更显远 */
+}
+
+/* === 左右斜墙（梯形侧壁，强化立体房间感）=== */
+.exhibits-grid::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:9%;
+  background:linear-gradient(90deg,
+    rgba(120,80,40,.55) 0%,
+    rgba(140,95,50,.35) 60%,
+    transparent 100%);
+  /* 斜切成梯形：上窄下宽 */
+  clip-path:polygon(0 0, 100% 18%, 100% 82%, 0 100%);
+  z-index:1;pointer-events:none;
+}
+.exhibits-grid::after{
+  /* 这个位置 ::after 用于英文标识，挪到 .hall-far-label */
+  display:none;
+}
+/* 右侧斜墙：单独 div 定位 */
+.exhibits-grid .wall-side-r{
+  position:absolute;right:0;top:0;bottom:0;width:9%;
+  background:linear-gradient(270deg,
+    rgba(120,80,40,.55) 0%,
+    rgba(140,95,50,.35) 60%,
+    transparent 100%);
+  clip-path:polygon(100% 0, 0 18%, 0 82%, 100% 100%);
+  z-index:1;pointer-events:none;
+}
+
+/* 远墙馆名标（隐约浮在墙上） */
+.exhibits-grid .hall-far-label{
+  position:absolute;left:0;right:0;top:8px;
+  text-align:center;
+  font-size:13px;font-weight:900;letter-spacing:6px;
+  color:rgba(80,55,28,.5);
+  text-shadow:0 1px 0 rgba(255,235,200,.7);
+  z-index:2;
+  pointer-events:none;
+}
+.exhibits-grid .hall-far-label::before{
+  content:"M U S E U M · 博物展厅";
+}
+
+/* === 远柜区：4 个小展柜横排，靠墙 === */
+.cases-row.far{
+  position:relative;z-index:3;
+  display:flex;justify-content:center;align-items:flex-end;
+  gap:12px;
+  padding:34px 22px 8px;
+  /* 靠墙的轻微 perspective 让远柜显得"贴墙" */
+  transform:perspective(900px) rotateX(6deg);
+  transform-origin:50% 100%;
+}
+.cases-row.far .exhibit-slot{
+  width:68px;
+  aspect-ratio:.7;
+  flex:0 0 68px;
+}
+.cases-row.far .exhibit-slot .ex-label{font-size:9px;padding:1px 4px;letter-spacing:0}
+.cases-row.far .exhibit-slot .ex-cost{font-size:8px;margin-top:1px}
+.cases-row.far .exhibit-slot .ex-cost::before{font-size:8px}
+.cases-row.far .exhibit-slot .ex-icon{width:80%}
+.cases-row.far .exhibit-slot.action::after{
+  font-size:8px;padding:2px 5px;top:-6px;right:-2px;letter-spacing:0;
+}
+
+/* === 中央走道：等距地毯（菱形） === */
+.museum-aisle{
+  position:relative;z-index:2;
+  flex:1;
+  min-height:170px;
+  background:transparent;
+  overflow:visible;
+}
+
+/* 红地毯（中央，等距菱形） */
+.museum-aisle::before{
+  content:"";
+  position:absolute;left:18%;right:18%;top:8%;bottom:6%;
+  background:
+    /* 地毯纹理：横向条纹 */
+    repeating-linear-gradient(0deg,
+      rgba(120,30,20,.18) 0,rgba(120,30,20,.18) 2px,
+      transparent 2px,transparent 14px),
+    linear-gradient(180deg,#A53B22 0%,#8B2A18 50%,#7A2010 100%);
+  /* 等距梯形：远端窄，近端宽（模拟透视消失点） */
+  clip-path:polygon(22% 0%, 78% 0%, 100% 100%, 0% 100%);
+  border:none;
+  box-shadow:
+    inset 0 4px 0 rgba(0,0,0,.2),
+    inset 0 -4px 0 rgba(0,0,0,.25);
+  z-index:0;pointer-events:none;
+  filter:drop-shadow(0 4px 6px rgba(0,0,0,.2));
+}
+
+/* 走道指示标签（隐约浮在地毯上） */
+.museum-aisle .aisle-label{
+  position:absolute;left:50%;top:22%;transform:translateX(-50%);
+  font-size:8px;letter-spacing:5px;font-weight:800;
+  color:rgba(255,235,180,.55);
+  pointer-events:none;z-index:2;
+}
+.museum-aisle .aisle-label::before{
+  content:"PROMENADE";
+}
+
+/* === 近柜区：4 个大展柜横排（前景） === */
+.cases-row.near{
+  position:relative;z-index:4;
+  display:flex;justify-content:center;align-items:flex-end;
+  gap:10px;
+  padding:14px 18px 18px;
+  filter:drop-shadow(0 8px 12px rgba(0,0,0,.4));
+}
+.cases-row.near .exhibit-slot{
+  width:106px;
+  aspect-ratio:.72;
+  flex:0 0 106px;
+}
+.cases-row.near .exhibit-slot .ex-label{font-size:11px}
+.cases-row.near .exhibit-slot .ex-cost{font-size:10px}
+
+/* === 装饰物：盆栽 / 灯柱 === */
+.aisle-prop{
+  position:absolute;bottom:8px;
+  z-index:3;pointer-events:none;
+}
+.aisle-prop.left{left:4%}
+.aisle-prop.right{right:4%}
+
+/* 盆栽：分层叶+陶罐 */
+.aisle-prop.plant{
+  width:32px;height:50px;
+}
+.aisle-prop.plant::before{
+  /* 叶片层：3 团绿色椭圆 */
+  content:"";position:absolute;
+  left:0;right:0;top:0;height:62%;
+  background:
+    radial-gradient(ellipse 10px 8px at 50% 14%,#3D7A3A 70%,transparent 80%),
+    radial-gradient(ellipse 9px 7px at 28% 28%,#4A8E45 70%,transparent 80%),
+    radial-gradient(ellipse 9px 7px at 72% 28%,#4A8E45 70%,transparent 80%),
+    radial-gradient(ellipse 8px 6px at 22% 50%,#5BA050 70%,transparent 80%),
+    radial-gradient(ellipse 8px 6px at 78% 50%,#5BA050 70%,transparent 80%),
+    radial-gradient(ellipse 8px 6px at 50% 60%,#6BBA60 70%,transparent 80%);
+  background-repeat:no-repeat;
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.35));
+}
+.aisle-prop.plant::after{
+  /* 陶罐 */
+  content:"";position:absolute;
+  left:18%;right:18%;bottom:0;height:42%;
+  background:linear-gradient(180deg,#C97548 0%,#9A4A28 100%);
+  border:1.5px solid #5C2510;
+  border-radius:2px 2px 6px 6px;
+  box-shadow:
+    inset 0 2px 0 rgba(255,200,140,.4),
+    inset 0 -2px 0 rgba(0,0,0,.25),
+    0 3px 4px rgba(0,0,0,.3);
+}
+
+/* 灯柱（替换原方案，加在走道两端可选） */
+.aisle-prop.lamp{
+  width:14px;height:60px;
+}
+.aisle-prop.lamp::before{
+  content:"";position:absolute;
+  left:50%;transform:translateX(-50%);
+  bottom:0;width:5px;height:80%;
+  background:linear-gradient(180deg,#5C4020,#3D2818);
+  border-radius:2px;
+  box-shadow:0 2px 4px rgba(0,0,0,.3);
+}
+.aisle-prop.lamp::after{
+  content:"";position:absolute;
+  left:50%;top:0;transform:translateX(-50%);
+  width:14px;height:14px;
+  background:radial-gradient(circle,#FFE3A3 30%,#FFB860 70%,#D4783A 100%);
+  border-radius:50%;
+  border:1.5px solid #5C2510;
+  box-shadow:0 0 12px rgba(255,200,100,.7),0 2px 3px rgba(0,0,0,.4);
+}
+
+/* === 远墙画框（挂在墙上，立体感）=== */
+.wall-deco{
+  position:absolute;top:14%;
+  width:36px;height:28px;
+  background:linear-gradient(180deg,#FBF4E8,#E8C99A);
+  border:2px solid #5C2510;
+  border-radius:2px;
+  z-index:2;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.5),
+    inset 0 -1px 0 rgba(0,0,0,.2),
+    0 3px 6px rgba(0,0,0,.4);
+  /* 微微透视：左侧画框朝右倾，右侧朝左倾，强化立体 */
+}
+.wall-deco::before{
+  content:"";position:absolute;inset:3px;
+  background:linear-gradient(135deg,#C2410C 0%,#8B2510 100%);
+  opacity:.7;
+  border-radius:1px;
+}
+.wall-deco::after{
+  /* 画框金钉 */
+  content:"";position:absolute;top:-3px;left:50%;transform:translateX(-50%);
+  width:4px;height:4px;background:#D4A574;border-radius:50%;
+  box-shadow:0 1px 1px rgba(0,0,0,.4);
+}
+.wall-deco.l1{left:4%;transform:perspective(300px) rotateY(18deg)}
+.wall-deco.l2{left:22%;width:30px;height:24px;top:11%}
+.wall-deco.r1{right:4%;transform:perspective(300px) rotateY(-18deg)}
+.wall-deco.r2{right:22%;width:30px;height:24px;top:11%}
+
+/* === 玻璃展柜（立体盒子核心组件） ===
+ * 结构（视觉自上而下）：
+ *   ┌─────────┐ ← 玻璃顶（薄一层亮）
+ *   │  ╔═══╗  │ ← 玻璃罩 + 内部展品聚光
+ *   │  ║   ║  │
+ *   │  ╚═══╝  │
+ *   ├─────────┤ ← 木质底座（带侧面阴影模拟立体）
+ *   │  铜铭牌 │
+ *   └─────────┘
+ *   ░░░░░░░░░░  ← 地面投影
+ * 立体感来源：
+ *   1. ::before 模拟玻璃柜"右侧侧面"（浅米色梯形）
+ *   2. case-base 加多层 box-shadow 表现底座厚度
+ *   3. ::after 地面投影（椭圆模糊） */
+.exhibit-slot{
+  position:relative;
+  cursor:pointer;
+  transition:transform .15s;
+  display:flex;flex-direction:column;align-items:stretch;justify-content:flex-end;
+  /* 让侧面/投影伪元素露出来 */
+  overflow:visible;
+}
+.exhibit-slot:active{transform:translateY(2px)}
+
+/* 玻璃罩（顶部 62%） */
+.exhibit-slot .case-glass{
+  position:relative;flex:1;
+  background:
+    /* 玻璃反光（左上→右下） */
+    linear-gradient(135deg,
+      rgba(255,255,255,.6) 0%,
+      rgba(220,235,255,.18) 30%,
+      rgba(180,210,235,.08) 55%,
+      rgba(220,235,255,.22) 78%,
+      rgba(255,255,255,.4) 100%);
+  border:2px solid rgba(255,255,255,.85);
+  border-bottom:2px solid rgba(180,200,220,.6);
+  border-radius:6px 6px 0 0;
+  box-shadow:
+    inset 2px 2px 0 rgba(255,255,255,.7),
+    inset -2px -2px 0 rgba(180,200,220,.4),
+    0 0 14px rgba(255,235,180,.35);
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+  z-index:2;
+}
+/* 柜内米色丝绒衬底（聚光） */
+.exhibit-slot .case-glass::before{
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(ellipse 70% 65% at 50% 75%, #FEF3E2, #E8C99A 70%, #C9A878);
+  z-index:-1;
+}
+/* 玻璃高光斜带 */
+.exhibit-slot .case-glass::after{
+  content:"";position:absolute;top:5%;left:8%;width:32%;height:90%;
+  background:linear-gradient(120deg,rgba(255,255,255,.55) 0%,transparent 60%);
+  transform:skewX(-15deg);pointer-events:none;
+}
+
+/* 展品图标（玻璃柜里悬浮） */
+.exhibit-slot .ex-icon{
+  position:relative;z-index:1;
+  width:75%;aspect-ratio:1;
+  display:flex;align-items:center;justify-content:center;
+  filter:drop-shadow(0 4px 6px rgba(0,0,0,.35));
+}
+.exhibit-slot .ex-icon img{width:100%;height:100%;object-fit:contain}
+.exhibit-slot .ex-icon .icon-bg{
+  width:100%;height:100%;
+  background-size:cover;background-position:center;background-repeat:no-repeat;
+}
+
+/* 展品聚光圆（filled 时更亮） */
+.exhibit-slot.filled .case-glass::before{
+  background:
+    radial-gradient(ellipse 50% 40% at 50% 45%, rgba(255,235,180,.95), transparent 70%),
+    radial-gradient(ellipse 70% 65% at 50% 75%, #FEF3E2, #E8C99A 70%, #C9A878);
+}
+
+/* 木质底座（底部 38%，多层阴影模拟立体厚度） */
+.exhibit-slot .case-base{
+  position:relative;
+  height:38%;
+  background:
+    /* 木纹横向 */
+    repeating-linear-gradient(90deg,transparent 0,transparent 9px,rgba(0,0,0,.12) 9px,rgba(0,0,0,.12) 10px),
+    linear-gradient(180deg,#A77846 0%,#8B5E32 40%,#5C3F22 100%);
+  background-blend-mode:multiply;
+  border:2px solid #3D2818;
+  border-top:none;
+  border-radius:0 0 6px 6px;
+  box-shadow:
+    /* 顶部高光（木板亮边） */
+    inset 0 2px 0 rgba(255,210,150,.45),
+    /* 右侧暗（光从左来） */
+    inset -3px 0 0 rgba(0,0,0,.25),
+    /* 投影 */
+    0 4px 6px rgba(0,0,0,.45),
+    0 8px 0 -2px rgba(0,0,0,.15);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:4px 5px;text-align:center;
+  z-index:2;
+}
+
+/* === 立体侧面：右侧暗面（模拟柜子的厚度）=== */
+.exhibit-slot::before{
+  content:"";position:absolute;
+  right:-5px;top:6px;bottom:0;
+  width:6px;
+  background:linear-gradient(180deg,
+    rgba(60,40,20,.45) 0%,
+    rgba(60,40,20,.55) 60%,
+    rgba(40,25,12,.7) 100%);
+  border-radius:0 4px 4px 0;
+  z-index:1;
+  pointer-events:none;
+  /* 上方斜削，模拟透视 */
+  clip-path:polygon(0 4%, 100% 0%, 100% 100%, 0 100%);
+}
+
+/* === 地面投影（filled 时显示，立体感关键） === */
+.exhibit-slot::after{
+  content:"";position:absolute;
+  left:-6%;right:-12%;bottom:-10px;height:10px;
+  background:radial-gradient(ellipse,rgba(0,0,0,.4) 0%,rgba(0,0,0,.18) 50%,transparent 80%);
+  pointer-events:none;
+  z-index:0;
+  filter:blur(1px);
+}
+
+/* 铜质铭牌 */
+.exhibit-slot .ex-label{
+  font-size:11px;color:#3D2818;font-weight:800;line-height:1.2;
+  text-shadow:0 1px 0 rgba(255,235,180,.6);
+  background:linear-gradient(180deg,#F4DDB0 0%,#D4A574 50%,#A88848 100%);
+  border:1px solid #5C2510;border-radius:3px;
+  padding:2px 6px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.6),
+    inset 0 -1px 0 rgba(0,0,0,.25),
+    0 1px 2px rgba(0,0,0,.4);
+  white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;
+}
+.exhibit-slot .ex-cost{
+  font-size:10px;font-weight:800;color:#FFE3A3;
+  margin-top:3px;
+  text-shadow:0 1px 1px #000;
+  display:flex;align-items:center;gap:2px;
+}
+.exhibit-slot .ex-cost::before{content:"💰";font-size:9px}
+
+/* === 空玻璃柜（虚位） === */
+.exhibit-slot.empty-hint .case-glass{
+  background:
+    linear-gradient(135deg,
+      rgba(255,255,255,.4) 0%,
+      rgba(255,255,255,.12) 50%,
+      rgba(255,255,255,.25) 100%);
+  border-color:rgba(255,255,255,.5);
+}
+.exhibit-slot.empty-hint .case-glass::before{
+  background:radial-gradient(ellipse 60% 50% at 50% 80%, rgba(255,255,255,.35), rgba(180,170,150,.25));
+}
+.exhibit-slot.empty-hint .ex-icon{
+  font-size:32px;color:rgba(255,255,255,.7);
+  text-shadow:0 2px 4px rgba(0,0,0,.3);
+}
+.exhibit-slot.empty-hint .ex-label{
+  background:linear-gradient(180deg,#C9BBA0,#8B7E66);
+  font-size:10px;color:#3D2818;
+}
+.exhibit-slot.empty-hint .ex-cost{
+  font-size:9px;color:#FBF4E8;opacity:.85;
+}
+.exhibit-slot.empty-hint .ex-cost::before{content:""}
+.exhibit-slot.empty-hint::before,
+.exhibit-slot.empty-hint::after{opacity:.5}
+
+/* === 可捐赠状态（金色脉动） === */
+.exhibit-slot.action .case-glass{
+  border-color:#FFE3A3;
+  box-shadow:
+    inset 2px 2px 0 rgba(255,255,255,.8),
+    inset -2px -2px 0 rgba(255,200,100,.6),
+    0 0 24px rgba(255,200,80,.85);
+  animation:caseGlow 1.6s ease-in-out infinite;
+}
+@keyframes caseGlow{
+  0%,100%{box-shadow:inset 2px 2px 0 rgba(255,255,255,.8),inset -2px -2px 0 rgba(255,200,100,.6),0 0 16px rgba(255,200,80,.6)}
+  50%{box-shadow:inset 2px 2px 0 rgba(255,255,255,.8),inset -2px -2px 0 rgba(255,200,100,.6),0 0 30px rgba(255,200,80,1)}
+}
+.exhibit-slot.action::after{
+  /* 重写 ::after 让"可捐赠"徽章显示，覆盖默认的投影 */
+  content:"可捐赠";
+  position:absolute;top:-8px;right:-4px;
+  background:linear-gradient(180deg,#C2410C,#8B2510);
+  color:#FFE3A3;font-size:10px;font-weight:800;
+  padding:3px 8px;border-radius:10px;
+  border:2px solid #FFE3A3;
+  box-shadow:0 2px 6px rgba(0,0,0,.4);
+  letter-spacing:1px;
+  z-index:5;
+  /* 还原 after 不再当投影 */
+  width:auto;height:auto;left:auto;bottom:auto;filter:none;
+}
+.exhibit-slot.disabled{opacity:.55;cursor:not-allowed}
+.exhibit-slot.disabled .case-glass{animation:none}
+
+/* === 装饰：filled 状态地板倒影（已被 ::after 接管，只保留弱化 hover）=== */
+.exhibit-slot.filled:hover{transform:translateY(-2px)}
+
+/* 「展开博物馆」按钮：黄铜圆纽 */
+.museum-btn{
+  position:absolute;right:12px;bottom:172px;z-index:22;
+  width:54px;height:54px;border-radius:50%;
+  background:
+    radial-gradient(circle at 35% 30%,#FFE3A3 0%,#D4A574 35%,#A77846 70%,#5C4020 100%);
+  border:2.5px solid #2A1A0C;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-size:9px;font-weight:800;color:#3D2818;
+  cursor:pointer;padding:0;
+  box-shadow:
+    inset 0 2px 0 rgba(255,235,180,.7),
+    inset 0 -3px 4px rgba(0,0,0,.35),
+    0 4px 0 #1A0E04,0 6px 12px rgba(0,0,0,.4);
+  text-shadow:0 1px 0 rgba(255,235,180,.5);
+  letter-spacing:1px;line-height:1.1;
+  transition:transform .12s;
+}
+.museum-btn:active{transform:translateY(2px);box-shadow:inset 0 2px 0 rgba(255,235,180,.7),inset 0 -3px 4px rgba(0,0,0,.35),0 2px 0 #1A0E04}
+.museum-btn .ic{font-size:20px;line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.4))}
+.museum-btn span:nth-child(2){font-size:8.5px;margin-top:1px}
+.museum-btn .dot{position:absolute;top:-3px;right:-3px;width:11px;height:11px;background:#E84545;border-radius:50%;display:none;border:1.5px solid #FFFBEF;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.museum-btn .dot.show{display:block;animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.3)}}
+
+/* === 经营按钮组（升级 / 商店）：黄铜圆纽，与博物馆按钮同列 === */
+.biz-btns{
+  position:absolute;right:12px;bottom:236px;z-index:22;
+  display:flex;flex-direction:column;gap:10px;
+}
+.biz-btn{
+  width:46px;height:46px;border-radius:50%;
+  background:
+    radial-gradient(circle at 35% 30%,#FFE3A3 0%,#D4A574 35%,#A77846 70%,#5C4020 100%);
+  border:2.5px solid #2A1A0C;
+  font-size:20px;cursor:pointer;
+  box-shadow:
+    inset 0 2px 0 rgba(255,235,180,.7),
+    inset 0 -3px 4px rgba(0,0,0,.35),
+    0 4px 0 #1A0E04,0 6px 10px rgba(0,0,0,.35);
+  display:flex;align-items:center;justify-content:center;
+  position:relative;transition:transform .12s;
+  padding:0;
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.3));
+}
+.biz-btn .ic{filter:drop-shadow(0 1px 1px rgba(0,0,0,.4))}
+.biz-btn:active{transform:translateY(2px);box-shadow:inset 0 2px 0 rgba(255,235,180,.7),inset 0 -3px 4px rgba(0,0,0,.35),0 2px 0 #1A0E04}
+.biz-btn .biz-dot{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;background:#E84545;color:#FFF;border-radius:8px;font-size:10px;font-weight:800;border:1.5px solid #FFFBEF;display:none;align-items:center;justify-content:center;padding:0 4px;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.biz-btn .biz-dot.show{display:flex;animation:pulse 1.4s infinite}
+body:has(.hall-overlay.show) .biz-btns{display:none}
+body:has(.biz-overlay.show) .biz-btns{display:none}
+
+/* === 经营浮层（升级 / 商店通用）=== */
+.biz-overlay{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(60,40,20,.55);backdrop-filter:blur(4px);
+  display:none;align-items:flex-end;justify-content:center;
+  animation:bizFade .2s ease-out;
+}
+.biz-overlay.show{display:flex}
+@keyframes bizFade{from{opacity:0}to{opacity:1}}
+.biz-card{
+  width:100%;max-width:440px;max-height:82vh;
+  background:linear-gradient(180deg,#FBF4E8 0%,#F4E5C8 100%);
+  border:3px solid #5C4020;border-bottom:none;
+  border-radius:20px 20px 0 0;
+  box-shadow:0 -8px 30px rgba(0,0,0,.4);
+  display:flex;flex-direction:column;
+  animation:bizSlide .3s cubic-bezier(.18,.89,.32,1.28);
+}
+@keyframes bizSlide{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.biz-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px 8px;border-bottom:2px dashed #C9A878;
+}
+.biz-title{font-size:18px;font-weight:800;color:#3D2818;letter-spacing:1px}
+.biz-close{
+  width:30px;height:30px;border-radius:50%;
+  background:#5C4020;color:#F4D5A8;border:none;
+  font-size:14px;font-weight:800;cursor:pointer;
+  box-shadow:0 2px 0 #3D2818;
+}
+.biz-close:active{transform:translateY(1px);box-shadow:0 1px 0 #3D2818}
+.biz-sub{padding:6px 18px 0;font-size:12px;color:#7A5538}
+.biz-body{flex:1;overflow-y:auto;padding:12px 14px 20px;display:flex;flex-direction:column;gap:8px}
+
+/* 升级 / 商店 行 */
+.biz-row{
+  display:flex;align-items:center;gap:10px;
+  background:#FFF;border:1.5px solid #C9A878;border-radius:12px;
+  padding:10px 12px;
+  position:relative;
+}
+.biz-row.locked{background:#EFE5D2;opacity:.7}
+.biz-row.section{
+  background:linear-gradient(180deg,#5C4020,#3D2818);color:#F4D5A8;
+  border:none;font-weight:800;font-size:13px;letter-spacing:2px;
+  padding:6px 12px;justify-content:center;
+}
+.biz-row .biz-ic{
+  width:42px;height:42px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#FEF3E2,#E8C99A);
+  border:1.5px solid #C9A878;border-radius:10px;
+  font-size:22px;
+}
+.biz-row .biz-info{flex:1;min-width:0}
+.biz-row .biz-name{font-size:13px;font-weight:800;color:#3D2818;line-height:1.3}
+.biz-row .biz-desc{font-size:11px;color:#7A5538;margin-top:2px;line-height:1.35}
+.biz-row .biz-action{
+  flex-shrink:0;padding:8px 12px;border-radius:18px;
+  background:linear-gradient(180deg,#E8843C,#C2410C);
+  color:#FFF;border:1.5px solid #8B2510;
+  font-size:12px;font-weight:800;cursor:pointer;
+  box-shadow:0 2px 0 #8B2510;
+  white-space:nowrap;display:flex;align-items:center;gap:3px;
+}
+.biz-row .biz-action:active{transform:translateY(1px);box-shadow:0 1px 0 #8B2510}
+.biz-row .biz-action.disabled{
+  background:linear-gradient(180deg,#A89A82,#7A6E58);
+  border-color:#5C4020;box-shadow:0 2px 0 #5C4020;cursor:not-allowed;
+}
+.biz-row .biz-action.owned{
+  background:linear-gradient(180deg,#7BAC4C,#4F8030);
+  border-color:#2D5018;box-shadow:0 2px 0 #2D5018;cursor:default;
+}
+.biz-row .biz-action.free{
+  background:linear-gradient(180deg,#D4A574,#A88848);
+  border-color:#5C4020;box-shadow:0 2px 0 #5C4020;
+}
+.biz-row .lock-tag{
+  position:absolute;top:-8px;left:10px;
+  background:#5C4020;color:#FFE3A3;
+  font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;
+  letter-spacing:1px;
+}
+
+/* ============================================================
+ *  访客系统（Step 1 · 让博物馆活起来）
+ *  参观猫从入口进 → 走到展柜前停留 → 冒气泡 → 产币 → 离场
+ * ============================================================ */
+
+/* 访客层：覆盖在 exhibits-grid 上，pointer-events:none 不挡操作 */
+.visitors-floor{
+  position:absolute;left:0;right:0;
+  top:0;bottom:0;
+  pointer-events:none;
+  z-index:6;
+  overflow:hidden;
+}
+
+/* 单只参观猫 */
+.visitor{
+  position:absolute;
+  width:46px;height:46px;
+  /* 起始：左侧入口外（aisle 区域之外） */
+  left:-50px;top:50%;
+  margin-top:-23px;
+  z-index:7;
+  filter:drop-shadow(0 4px 6px rgba(40,20,8,.4));
+  /* 走动：缓慢平滑 */
+  transition:left 4.2s cubic-bezier(.4,.05,.4,1), top 4.2s cubic-bezier(.4,.05,.4,1), opacity .5s linear;
+}
+.visitor.entering{opacity:0}
+.visitor.live{opacity:1}
+.visitor.leaving{opacity:0;transition:left 3s ease-in, top 3s ease-in, opacity 1.2s linear .8s}
+
+/* 远处的访客（比例缩小 0.7，模拟纵深） */
+.visitor.depth-far{ transform:scale(.65); filter:drop-shadow(0 3px 4px rgba(40,20,8,.4)) brightness(.9) }
+.visitor.depth-mid{ transform:scale(.85) }
+.visitor.depth-near{ transform:scale(1.0) }
+
+/* 朝向（默认朝右） */
+.visitor.face-l > svg{transform:scaleX(-1)}
+
+.visitor svg{width:100%;height:100%;display:block}
+
+/* 走路时的小幅"踱步"动画（叠加在 transition 上） */
+.visitor.walking svg{ animation:vWalk .42s ease-in-out infinite }
+@keyframes vWalk{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-3px)}
+}
+.visitor.face-l.walking svg{animation:vWalkL .42s ease-in-out infinite}
+@keyframes vWalkL{
+  0%,100%{transform:scaleX(-1) translateY(0)}
+  50%{transform:scaleX(-1) translateY(-3px)}
+}
+
+/* 驻足看展时的小晃头 */
+.visitor.gazing svg{animation:vGaze 2.4s ease-in-out infinite}
+@keyframes vGaze{
+  0%,100%{transform:rotate(-2deg)}
+  50%{transform:rotate(2deg)}
+}
+.visitor.face-l.gazing svg{animation:vGazeL 2.4s ease-in-out infinite}
+@keyframes vGazeL{
+  0%,100%{transform:scaleX(-1) rotate(2deg)}
+  50%{transform:scaleX(-1) rotate(-2deg)}
+}
+
+/* 头顶气泡 */
+.visitor .bubble{
+  position:absolute;
+  left:50%;top:-8px;
+  transform:translate(-50%,-100%) scale(0);
+  background:#FFFBEF;
+  border:2px solid #5C4020;
+  border-radius:14px;
+  padding:4px 10px;
+  font-size:12px;font-weight:700;color:#3D2818;
+  white-space:nowrap;
+  box-shadow:0 3px 8px rgba(0,0,0,.25);
+  opacity:0;
+  pointer-events:none;
+  transform-origin:bottom center;
+}
+.visitor .bubble::after{
+  content:"";position:absolute;
+  left:50%;top:100%;transform:translateX(-50%);
+  width:0;height:0;
+  border-left:6px solid transparent;
+  border-right:6px solid transparent;
+  border-top:8px solid #5C4020;
+}
+.visitor .bubble.show{
+  animation:bubbleIn 3s ease-out forwards;
+}
+.visitor.face-l .bubble{transform:translate(-50%,-100%) scale(0) scaleX(-1)}
+.visitor.face-l .bubble.show{animation:bubbleInL 3s ease-out forwards}
+@keyframes bubbleIn{
+  0%{opacity:0;transform:translate(-50%,-80%) scale(.3)}
+  15%{opacity:1;transform:translate(-50%,-100%) scale(1.1)}
+  25%{transform:translate(-50%,-100%) scale(1)}
+  85%{opacity:1;transform:translate(-50%,-100%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-100%) scale(.95)}
+}
+@keyframes bubbleInL{
+  0%{opacity:0;transform:translate(-50%,-80%) scale(.3) scaleX(-1)}
+  15%{opacity:1;transform:translate(-50%,-100%) scale(1.1) scaleX(-1)}
+  25%{transform:translate(-50%,-100%) scale(1) scaleX(-1)}
+  85%{opacity:1;transform:translate(-50%,-100%) scale(1) scaleX(-1)}
+  100%{opacity:0;transform:translate(-50%,-100%) scale(.95) scaleX(-1)}
+}
+
+/* 投币动画：金币从访客头顶飘向顶部金币计数 */
+.coin-pop{
+  position:fixed;
+  width:28px;height:28px;
+  background:radial-gradient(circle,#FFE3A3 30%,#D4A574 70%,#8A6332 100%);
+  border-radius:50%;
+  border:2px solid #8A6332;
+  box-shadow:0 2px 6px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.6);
+  z-index:300;pointer-events:none;
+  font-size:14px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;
+  color:#5C4020;
+  text-shadow:0 1px 0 rgba(255,255,255,.5);
+  transition:left .9s cubic-bezier(.4,.6,.4,1), top .9s cubic-bezier(.55,-.2,.6,1), transform .9s ease-in, opacity .25s linear .7s;
+}
+.coin-pop.start{transform:scale(.5) rotate(0)}
+.coin-pop.fly{transform:scale(.6) rotate(360deg);opacity:0}
+
+/* 入口指示（走道左侧门） */
+.hall-entrance{
+  position:absolute;
+  left:0;top:50%;transform:translateY(-50%);
+  z-index:5;
+  width:34px;height:62px;
+  background:linear-gradient(180deg,#3D2818 0%,#5C4020 50%,#3D2818 100%);
+  border-right:3px solid #D4A574;
+  border-radius:0 8px 8px 0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  box-shadow:2px 0 8px rgba(0,0,0,.3);
+  pointer-events:none;
+}
+.hall-entrance::before{
+  content:"🚪";font-size:18px;
+  filter:drop-shadow(0 1px 0 #FFE3A3);
+}
+.hall-entrance::after{
+  content:"入口";
+  position:absolute;bottom:-4px;left:50%;transform:translate(-50%,100%);
+  font-size:9px;color:#FFE3A3;font-weight:800;letter-spacing:1px;
+  background:rgba(60,40,24,.85);
+  padding:1px 5px;border-radius:6px;
+  white-space:nowrap;
+}
+
+/* 出口（右侧门） */
+.hall-exit{
+  position:absolute;
+  right:0;top:50%;transform:translateY(-50%);
+  z-index:5;
+  width:34px;height:62px;
+  background:linear-gradient(180deg,#3D2818 0%,#5C4020 50%,#3D2818 100%);
+  border-left:3px solid #D4A574;
+  border-radius:8px 0 0 8px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  box-shadow:-2px 0 8px rgba(0,0,0,.3);
+  pointer-events:none;
+}
+.hall-exit::before{
+  content:"🚪";font-size:18px;
+  filter:drop-shadow(0 1px 0 #FFE3A3);
+  transform:scaleX(-1);
+}
+.hall-exit::after{
+  content:"出口";
+  position:absolute;bottom:-4px;left:50%;transform:translate(-50%,100%);
+  font-size:9px;color:#FFE3A3;font-weight:800;letter-spacing:1px;
+  background:rgba(60,40,24,.85);
+  padding:1px 5px;border-radius:6px;
+  white-space:nowrap;
+}
+
+/* 人气指示（右上角） */
+.hall-popularity{
+  position:absolute;top:4px;right:14px;
+  z-index:5;
+  background:linear-gradient(180deg,rgba(60,40,24,.92),rgba(40,25,12,.92));
+  border:2px solid #D4A574;
+  border-radius:14px;
+  padding:5px 12px 5px 10px;
+  font-size:11px;font-weight:800;color:#FFE3A3;
+  letter-spacing:1px;
+  display:flex;align-items:center;gap:6px;
+  box-shadow:0 2px 8px rgba(0,0,0,.4);
+  backdrop-filter:blur(2px);
+}
+.hall-popularity .pop-stars{font-size:13px;letter-spacing:0;color:#FFD08A;text-shadow:0 0 4px rgba(255,200,100,.5)}
+.hall-popularity .pop-count{color:#FFFBEF;font-size:13px}
+
+/* 装饰条（博物馆里底部） */
+.hall-decor-bar{
+  position:relative;z-index:3;
+  margin:0 14px 12px;padding:8px 10px;
+  background:linear-gradient(180deg,rgba(60,40,24,.85),rgba(40,25,12,.85));
+  border:2px solid #D4A574;border-radius:10px;
+  display:flex;gap:6px;align-items:center;flex-wrap:wrap;
+  backdrop-filter:blur(4px);
+}
+.hall-decor-bar .deco-title{
+  font-size:11px;font-weight:800;color:#FFE3A3;letter-spacing:1px;
+  margin-right:4px;
+}
+.hall-decor-bar .deco-buff{
+  font-size:11px;color:#FFE3A3;font-weight:700;
+  background:rgba(216,120,40,.6);padding:2px 8px;border-radius:10px;
+  margin-left:auto;
+}
+.hall-decor-bar .deco-item{
+  width:32px;height:32px;border-radius:8px;
+  background:linear-gradient(135deg,#A89A82,#5C4020);
+  border:1.5px dashed rgba(255,227,163,.5);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;cursor:pointer;position:relative;
+  opacity:.55;
+}
+.hall-decor-bar .deco-item.owned{
+  background:linear-gradient(135deg,#FFE3A3,#D4A574);
+  border:1.5px solid #FFE3A3;
+  opacity:1;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 0 8px rgba(255,200,100,.5);
+}
+.hall-decor-bar .deco-item.locked-hall{opacity:.3}
+.hall-decor-bar .deco-item .deco-cost{
+  position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);
+  font-size:9px;color:#FFE3A3;background:#3D2818;
+  padding:1px 4px;border-radius:5px;font-weight:800;
+  white-space:nowrap;
+}
+.hall-decor-bar .deco-item.owned .deco-cost{display:none}
+
+/* 锁定的馆遮罩（在博物馆 grid 上整体盖一层） */
+.hall-locked-mask{
+  position:absolute;inset:60px 0 0 0;z-index:4;
+  background:rgba(20,12,4,.55);
+  backdrop-filter:blur(2px);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:20px;text-align:center;
+}
+.hall-locked-mask .lock-ico{font-size:54px;margin-bottom:8px;filter:drop-shadow(0 2px 4px #000)}
+.hall-locked-mask .lock-title{font-size:18px;font-weight:800;color:#FFE3A3;text-shadow:0 1px 2px #000;margin-bottom:6px}
+.hall-locked-mask .lock-cond{font-size:13px;color:#FBF4E8;line-height:1.6;margin-bottom:14px}
+.hall-locked-mask .lock-cond b{color:#FFD08A}
+.hall-locked-mask .lock-btn{
+  padding:10px 22px;border-radius:22px;
+  background:linear-gradient(180deg,#E8843C,#C2410C);
+  color:#FFF;border:2px solid #FFE3A3;
+  font-size:13px;font-weight:800;cursor:pointer;
+  box-shadow:0 3px 0 #8B2510,0 6px 14px rgba(0,0,0,.4);
+}
+.hall-locked-mask .lock-btn:active{transform:translateY(2px);box-shadow:0 1px 0 #8B2510}
+.hall-locked-mask .lock-btn.disabled{
+  background:linear-gradient(180deg,#A89A82,#7A6E58);
+  border-color:#5C4020;
+}
+
+/* 锁定展柜样式（slot 未购买） */
+.exhibit-slot.slot-locked{cursor:pointer}
+.exhibit-slot.slot-locked .case-glass{
+  background:repeating-linear-gradient(45deg,
+    rgba(60,40,20,.45) 0,rgba(60,40,20,.45) 8px,
+    rgba(80,55,30,.45) 8px,rgba(80,55,30,.45) 16px);
+  border-color:rgba(255,227,163,.5);
+}
+.exhibit-slot.slot-locked .case-glass::before{display:none}
+.exhibit-slot.slot-locked .case-glass::after{display:none}
+.exhibit-slot.slot-locked .ex-icon{font-size:30px;color:#FFE3A3;text-shadow:0 2px 4px #000}
+.exhibit-slot.slot-locked .case-base{background:linear-gradient(180deg,#5C4020,#3D2818)}
+.exhibit-slot.slot-locked .ex-label{
+  background:linear-gradient(180deg,#E8843C,#C2410C);
+  color:#FFF;border-color:#8B2510;
+}
+.exhibit-slot.slot-locked .ex-cost{color:#FFE3A3}
+.exhibit-slot.slot-locked .ex-cost::before{content:""}
+
+/* 浮层 */
+.modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px}
+
+/* ============================================================
+ * 委托卡（关卡主线 · 右下浮卡）
+ * 替代旧"博物馆任务"提示，给玩家明确目标
+ * ============================================================ */
+.commissions{
+  position:absolute;left:10px;right:78px;bottom:172px;
+  z-index:23;
+  display:flex;flex-direction:column;gap:8px;
+  pointer-events:none;
+}
+.commissions .cm-card{
+  pointer-events:auto;
+  background:linear-gradient(180deg,#FBF4E8 0%,#F4D5A8 100%);
+  border:2.5px solid #5C4020;
+  border-radius:14px;
+  padding:8px 10px 8px 8px;
+  position:relative;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.6),
+    0 4px 0 #2A1A0C,
+    0 7px 14px rgba(0,0,0,.3);
+  display:flex;align-items:center;gap:8px;
+  animation:cmIn .35s cubic-bezier(.18,.89,.32,1.28);
+}
+@keyframes cmIn{
+  0%{transform:translateY(20px) scale(.85);opacity:0}
+  100%{transform:translateY(0) scale(1);opacity:1}
+}
+/* 卡片左上角小标签 */
+.cm-card::before{
+  content:"委托";
+  position:absolute;top:-8px;left:10px;
+  background:linear-gradient(180deg,#E8843C,#C2410C);
+  color:#FFFBEF;font-size:10px;font-weight:800;
+  padding:2px 8px;border-radius:4px;
+  border:1.5px solid #2A1A0C;
+  letter-spacing:1px;
+  box-shadow:0 1px 0 rgba(0,0,0,.3);
+}
+.cm-card .cm-cat{
+  width:42px;height:42px;flex-shrink:0;
+  border-radius:50%;
+  background:#FFFBEF;
+  border:2px solid #5C4020;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 2px 4px rgba(0,0,0,.2);
+}
+.cm-card .cm-cat svg{width:34px;height:34px;display:block}
+.cm-card .cm-info{flex:1;min-width:0;line-height:1.3}
+.cm-card .cm-name{font-size:11px;color:#7A5538;font-weight:700}
+.cm-card .cm-line{
+  font-size:12px;color:#3D2818;font-weight:700;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;
+}
+.cm-card .cm-target{
+  display:flex;align-items:center;gap:5px;margin-top:3px;
+  font-size:11px;color:#5C2510;
+}
+.cm-card .cm-target .tg-ic{
+  width:24px;height:24px;border-radius:5px;
+  background:#FFFBEF;border:1.5px solid #8B6020;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;flex-shrink:0;
+}
+.cm-card .cm-target .tg-ic .icon-bg{width:90%;height:90%;background-size:cover;background-position:center}
+.cm-card .cm-target .tg-name{font-weight:800;color:#3D2818;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cm-card .cm-target .tg-prog{margin-left:auto;font-size:10px;font-weight:800;color:#7A5538}
+.cm-card .cm-target .tg-prog.ok{color:#4F8030}
+.cm-card .cm-reward{font-size:10px;color:#C2410C;font-weight:800;margin-top:1px}
+/* 右侧按钮组 */
+.cm-card .cm-actions{display:flex;flex-direction:column;gap:4px;flex-shrink:0}
+.cm-card .cm-do{
+  padding:6px 10px;border-radius:14px;
+  background:linear-gradient(180deg,#A89A82,#7A6E58);
+  color:#FFE3A3;border:1.5px solid #5C4020;
+  font-size:11px;font-weight:800;cursor:not-allowed;
+  box-shadow:0 2px 0 #5C4020;
+  letter-spacing:1px;white-space:nowrap;
+}
+.cm-card.ready .cm-do{
+  background:linear-gradient(180deg,#FFD700,#E8843C);
+  color:#FFFBEF;border-color:#8B2510;cursor:pointer;
+  box-shadow:0 2px 0 #8B2510,0 0 12px rgba(255,200,80,.7);
+  animation:cmReady 1.2s ease-in-out infinite;
+}
+@keyframes cmReady{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+.cm-card .cm-skip{
+  padding:3px 8px;border-radius:10px;
+  background:#FFFBEF;border:1.5px solid #8B6020;
+  color:#7A5538;font-size:10px;font-weight:700;cursor:pointer;
+  box-shadow:0 1px 0 #5C4020;
+  white-space:nowrap;
+}
+.cm-card .cm-skip:active{transform:translateY(1px);box-shadow:none}
+/* 完成动画：卡片闪光 */
+.cm-card.fulfilled{animation:cmFulfill .55s ease-out forwards}
+@keyframes cmFulfill{
+  0%{transform:scale(1)}
+  30%{transform:scale(1.1);box-shadow:0 0 30px #FFE3A3,0 4px 0 #2A1A0C}
+  100%{transform:scale(.6) translateY(-30px);opacity:0}
+}
+/* 扩槽提示卡 */
+.commissions .cm-slot-add{
+  pointer-events:auto;
+  background:rgba(60,40,20,.6);
+  border:2px dashed rgba(255,227,163,.6);
+  border-radius:12px;padding:8px 12px;
+  color:#FFE3A3;font-size:11px;font-weight:700;
+  text-align:center;cursor:pointer;
+  letter-spacing:1px;
+  backdrop-filter:blur(2px);
+}
+.cm-slot-add b{color:#FFD08A;margin-right:4px}
+.cm-slot-add:active{transform:translateY(1px)}
+
+/* 在浮层打开 / 棋盘展开时不挡 */
+body:has(.hall-overlay.show) .commissions{display:none}
+body:has(.biz-overlay.show) .commissions{display:none}
+body:has(.merge-panel:not(.collapsed)) .commissions{display:none}
+
+.modal{background:#FFF;border-radius:18px;padding:22px;width:100%;max-width:340px;box-shadow:0 10px 40px rgba(0,0,0,.2);text-align:center;animation:modalIn .25s}
+@keyframes modalIn{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
+.modal h2{margin:0 0 10px;font-size:18px;color:var(--accent-deep)}
+.modal p{margin:8px 0;font-size:13px;color:var(--ink2);line-height:1.6;text-align:left}
+.modal p.center{text-align:center}
+.modal .step-list{text-align:left;background:var(--tint);border-radius:10px;padding:10px 14px;margin:10px 0;font-size:13px;color:var(--ink);line-height:1.8}
+.modal .step-list b{color:var(--accent-deep)}
+.modal .btn{display:inline-block;padding:10px 28px;background:var(--accent);color:#FFF;border:none;border-radius:24px;font-size:14px;font-weight:700;cursor:pointer;margin-top:12px;box-shadow:0 3px 0 var(--accent-deep)}
+.modal .btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--accent-deep)}
+
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- 永久背景：博物馆 + 布偶猫（SVG 由 JS 注入） -->
+  <div class="museum-bg" id="museum-bg"></div>
+  <div class="cat-wander kitty walk face-r" id="cat-wander" style="--size:96px"></div>
+
+  <!-- 背景层展位（虚化时显示一排小展品） -->
+  <div class="bg-exhibits" id="bg-exhibits"></div>
+
+  <!-- 顶栏 -->
+  <div class="topbar">
+    <div class="res-group">
+      <div class="res" title="金币"><span class="ic">🪙</span><span id="gold">0</span></div>
+      <div class="res" title="图纸"><span class="ic">📜</span><span id="plan">0</span></div>
+    </div>
+    <div class="lv-wrap">
+      <div class="lv-badge"><div class="lv-fill" id="lv-fill"></div><span>馆长 第<span id="mlv">1</span>级</span></div>
+    </div>
+    <div class="res-group">
+      <div class="res" style="flex-direction:column;align-items:flex-end;padding:3px 10px" title="体力">
+        <div><span class="ic">⚡</span><span id="energy">60</span>/<span id="energy-max">60</span></div>
+        <div class="energy-bar"><div id="energy-bar-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 经营右侧按钮组（升级 / 商店） -->
+  <div class="biz-btns">
+    <button class="biz-btn upgrade-btn" id="upgrade-btn" title="升级">
+      <span class="ic">⬆️</span>
+      <span class="biz-dot" id="upgrade-dot"></span>
+    </button>
+    <button class="biz-btn shop-btn" id="shop-btn" title="商店">
+      <span class="ic">🛒</span>
+      <span class="biz-dot" id="shop-dot"></span>
+    </button>
+    <button class="biz-btn settings-btn" id="settings-btn" title="设置">
+      <span class="ic">⚙️</span>
+    </button>
+  </div>
+
+  <!-- 设置浮层 -->
+  <div class="modal-mask" id="settings-mask" style="display:none">
+    <div class="modal" style="max-width:300px">
+      <h3 style="margin:0 0 14px;font-size:18px;color:#3D2818">⚙️ 设置</h3>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button id="set-restart" style="padding:12px 16px;background:linear-gradient(180deg,#E84545,#A82020);color:#FFFBEF;border:2px solid #5C1010;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 3px 0 #5C1010;letter-spacing:1px">🔄 重新开始（清空存档）</button>
+        <button id="set-export" style="padding:10px 16px;background:#F5E8D0;color:#5C4020;border:2px solid #8B6020;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 0 #5C4020">📋 导出存档</button>
+        <button id="set-close" style="padding:10px 16px;background:#FFFBEF;color:#5C4020;border:2px solid #8B6020;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 0 #5C4020;margin-top:6px">关闭</button>
+      </div>
+      <div style="font-size:11px;color:#7A5538;margin-top:12px;line-height:1.5">小提示：双击顶栏也可触发重启</div>
+    </div>
+  </div>
+
+  <!-- 任务/引导条 -->
+  <div class="guide-bar" id="guide-bar">
+    <div class="gtag">任务</div>
+    <div class="gtxt" id="guide-text">加载中…</div>
+  </div>
+
+  <!-- 展开博物馆按钮 -->
+  <div class="museum-btn" id="museum-btn">
+    <span class="ic">🏛️</span><span>展开博物馆</span>
+    <span class="dot" id="museum-dot"></span>
+  </div>
+
+  <!-- 委托卡（关卡主线） -->
+  <div class="commissions" id="commissions"></div>
+
+  <!-- 合成棋盘悬浮面板 -->
+  <div class="merge-panel" id="merge-panel">
+    <div class="panel-handle" id="panel-handle">
+      <div class="bar"></div>
+      <div class="label">
+        <span class="lbl-default">下滑收起 · 看博物馆</span>
+        <span class="arrow">▼</span>
+      </div>
+    </div>
+    <div class="orders-bar" id="orders-bar"></div>
+    <div class="board-wrap">
+      <div class="board" id="board"></div>
+    </div>
+  </div>
+
+  <!-- 博物馆详情浮层（点按钮展开） -->
+  <div class="hall-overlay" id="hall-overlay">
+    <div class="hall-close" id="hall-close">返回棋盘</div>
+    <div class="hall-title" id="hall-title">猫咪博物馆</div>
+    <div class="hall-tabs" id="hall-tabs"></div>
+    <div class="hall-tip" id="hall-tip">将合成的 <b>三阶以上</b>展品捐赠到这里 · 展品会自动产出金币</div>
+    <div class="hall-popularity" id="hall-popularity">
+      <span class="pop-stars" id="pop-stars">⭐</span>
+      <span>人气</span>
+      <span class="pop-count" id="pop-count">0</span>
+    </div>
+    <!-- 伪等距 2.5D 卡通博物馆：远墙 → 远柜 → 走道 → 近柜 -->
+    <div class="exhibits-grid" id="exhibits-grid">
+      <!-- 右侧斜墙（左斜墙用 ::before） -->
+      <div class="wall-side-r"></div>
+      <!-- 远墙隐约馆名 -->
+      <div class="hall-far-label"></div>
+      <!-- 远墙画框装饰（带透视感） -->
+      <div class="wall-deco l1"></div>
+      <div class="wall-deco l2"></div>
+      <div class="wall-deco r1"></div>
+      <div class="wall-deco r2"></div>
+      <!-- 远柜区：4 个小展柜靠墙 -->
+      <div class="cases-row far" id="cases-far"></div>
+      <!-- 中央走道：访客层 + 装饰 -->
+      <div class="museum-aisle" id="museum-aisle">
+        <!-- 走道地毯英文标签 -->
+        <div class="aisle-label"></div>
+        <div class="aisle-prop plant left"></div>
+        <div class="aisle-prop plant right"></div>
+        <!-- 访客系统：参观猫层 -->
+        <div class="visitors-floor" id="visitors-floor"></div>
+        <!-- 入口（左侧门）+ 出口（右侧门）-->
+        <div class="hall-entrance" id="hall-entrance"></div>
+        <div class="hall-exit" id="hall-exit"></div>
+      </div>
+      <!-- 近柜区：4 个大展柜近镜头 -->
+      <div class="cases-row near" id="cases-near"></div>
+    </div>
+    <div class="hall-decor-bar" id="hall-decor-bar"></div>
+  </div>
+
+  <!-- 升级面板浮层 -->
+  <div class="biz-overlay" id="upgrade-overlay">
+    <div class="biz-card">
+      <div class="biz-head">
+        <div class="biz-title">⚙️ 升级中心</div>
+        <button class="biz-close" data-close="upgrade-overlay">✕</button>
+      </div>
+      <div class="biz-body" id="upgrade-body"></div>
+    </div>
+  </div>
+
+  <!-- 商店浮层 -->
+  <div class="biz-overlay" id="shop-overlay">
+    <div class="biz-card">
+      <div class="biz-head">
+        <div class="biz-title">🛒 限时商店</div>
+        <button class="biz-close" data-close="shop-overlay">✕</button>
+      </div>
+      <div class="biz-sub" id="shop-sub">每日 0 点刷新</div>
+      <div class="biz-body" id="shop-body"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="game.js?v=woodui20260531-v17"></script>
+</body>
+</html>
