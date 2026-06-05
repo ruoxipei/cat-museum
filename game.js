@@ -2314,12 +2314,13 @@ function renderMuseum(){
           <div class="ex-cost">${visitorAvg}🪙/位</div>
         </div>`;
     } else {
-      const candidates = hall.pool.filter(id => counts[id] > 0);
+      // 只允许三阶以上素材作为捐赠候选（与 hall-tip 提示一致 + EXHIBIT_COST 仅含 3+）
+      const candidates = hall.pool.filter(id => counts[id] > 0 && (ITEMS[id]?.lv || 0) >= 3);
       if (candidates.length > 0 && isHallUnlocked){
         const c = candidates[candidates.length - 1];
         const def = ITEMS[c];
         const cost = EXHIBIT_COST[def.lv];
-        const can = state.gold >= cost.gold && state.plan >= cost.plan;
+        const can = !!cost && state.gold >= cost.gold && state.plan >= cost.plan;
         slot.classList.toggle('disabled', !can);
         slot.classList.add('action');
         const url = (typeof ICON_URLS!=='undefined' && ICON_URLS[def.row] && ICON_URLS[def.row][def.col]) || '';
@@ -2404,7 +2405,9 @@ function renderDecorBar(){
 }
 function donateExhibit(hallKey, slotIdx, itemId){
   const def = ITEMS[itemId];
+  if (!def || def.lv < 3){ toast('只有三阶以上展品可入馆'); return; }
   const cost = EXHIBIT_COST[def.lv];
+  if (!cost){ toast('该阶数暂不支持入馆'); return; }
   if (state.gold < cost.gold || state.plan < cost.plan) return;
   for (let i = 0; i < state.board.length; i++){
     const it = state.board[i];
@@ -2900,6 +2903,13 @@ function start(){
     while (state.exhibits[hk].length < (state.slotsUnlocked[hk] || 6)){
       state.exhibits[hk].push(null);
     }
+    // 清理历史脏数据：仅允许三阶以上展品占位（早期版本曾允许低阶捐赠）
+    state.exhibits[hk] = state.exhibits[hk].map(id => {
+      if (!id) return null;
+      const def = ITEMS[id];
+      if (!def || def.lv < 3) return null;
+      return id;
+    });
   });
 
   if (!state.board || state.board.length === 0) initBoard();
