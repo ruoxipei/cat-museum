@@ -2269,9 +2269,9 @@ function renderMuseum(){
     }
   }
 
-  // 渲染展柜：8 个槽位分两排（远 4 + 近 4），idx 0-3 远排、4-7 近排
-  const $rowFar = document.getElementById('cases-far');
-  const $rowNear = document.getElementById('cases-near');
+  // 渲染展柜：8 个槽位分两列（左 4 + 右 4），idx 0-3 左列、4-7 右列
+  const $rowFar = document.getElementById('cases-left');
+  const $rowNear = document.getElementById('cases-right');
   if (!$rowFar || !$rowNear) return;
   $rowFar.innerHTML = '';
   $rowNear.innerHTML = '';
@@ -2293,7 +2293,7 @@ function renderMuseum(){
         </div>`;
       if (can) slot.onclick = () => buyExhibitSlot(state.currentHall);
       else slot.onclick = () => toast(isHallUnlocked ? '金币不足' : '先解锁此展厅');
-      // 分发到远/近排
+      // 分发到左/右列
       (idx < 4 ? $rowFar : $rowNear).appendChild(slot);
       continue;
     }
@@ -3096,26 +3096,29 @@ function getVisitableSlots(){
   const $floor = document.getElementById('visitors-floor');
   if (!$floor) return [];
   const floorR = $floor.getBoundingClientRect();
-  // 远柜（在 aisle 上方）→ 驻足点 = aisle 顶部 + 偏移
-  // 近柜（在 aisle 下方）→ 驻足点 = aisle 底部 - 偏移
-  const farSlots = document.querySelectorAll('#cases-far .exhibit-slot.filled');
-  const nearSlots = document.querySelectorAll('#cases-near .exhibit-slot.filled');
+  // 左列展柜（idx 0-3）→ 驻足点在 aisle 左边缘附近
+  // 右列展柜（idx 4-7）→ 驻足点在 aisle 右边缘附近
+  // y 坐标：按每个展柜实际所在的纵向位置投影到 aisle 内
+  const leftSlots = document.querySelectorAll('#cases-left .exhibit-slot.filled');
+  const rightSlots = document.querySelectorAll('#cases-right .exhibit-slot.filled');
   const list = [];
-  farSlots.forEach((slot) => {
+  leftSlots.forEach((slot) => {
     const r = slot.getBoundingClientRect();
+    const cy = r.top - floorR.top + r.height / 2;
     list.push({
       el: slot,
-      x: r.left - floorR.left + r.width / 2,    // 展柜中心 x（相对 aisle）
-      y: floorR.height * 0.20,                  // 远柜驻足：aisle 顶部 20% 处
+      x: 18,                                                 // 紧贴 aisle 左侧
+      y: Math.max(20, Math.min(floorR.height - 20, cy)),
       depth: 'far',
     });
   });
-  nearSlots.forEach((slot) => {
+  rightSlots.forEach((slot) => {
     const r = slot.getBoundingClientRect();
+    const cy = r.top - floorR.top + r.height / 2;
     list.push({
       el: slot,
-      x: r.left - floorR.left + r.width / 2,
-      y: floorR.height * 0.78,                  // 近柜驻足：aisle 底部 22% 处
+      x: floorR.width - 18,                                  // 紧贴 aisle 右侧
+      y: Math.max(20, Math.min(floorR.height - 20, cy)),
       depth: 'near',
     });
   });

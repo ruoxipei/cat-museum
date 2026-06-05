@@ -593,91 +593,31 @@ html,body{margin:0;padding:0;background:#2A1F14;color:var(--ink);font-family:-ap
   position:absolute;inset:150px 0 0 0;z-index:25;
   display:none;flex-direction:column;
   overflow:hidden;
-  /* 主背景：上半墙 + 下半地板（保留分层渐变作为兜底） */
-  background:
-    /* 顶部柔和射灯 */
-    radial-gradient(ellipse 80% 30% at 50% 0%, rgba(255,235,180,.45), transparent 70%),
-    /* 上半墙：暖米色奶油 */
-    linear-gradient(180deg,
-      #E9D2A4 0%,           /* 拱顶阴影 */
-      #F2DDB4 4%,           /* 顶部高光 */
-      #ECD0A0 30%,          /* 墙面主色 */
-      #D4B381 48%,          /* 墙脚 */
-      /* 地板起始 */
-      #8B6A45 50%,
-      #6E5132 100%);
+  /* 主背景：纵深视角馆内插画（每个馆一张） */
+  background:#3D2818 center top / cover no-repeat;
+  background-image:url('assets/hall_cat.png');
   animation:hallIn .35s ease-out;
 }
 .hall-overlay.show{display:flex}
 @keyframes hallIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 
-/* 不同展厅的氛围色调 */
-.hall-overlay[data-hall="cat"]{ /* 猫咪馆：暖米色（默认） */ }
-.hall-overlay[data-hall="fossil"]{
-  background:
-    radial-gradient(ellipse 80% 30% at 50% 0%, rgba(200,255,210,.4), transparent 70%),
-    linear-gradient(180deg,
-      #B8C9A8 0%,#C7D6B6 4%,#A8BC94 30%,#7E9268 48%,
-      #4F6440 50%,#3D5230 100%);
-}
-.hall-overlay[data-hall="relic"]{
-  background:
-    radial-gradient(ellipse 80% 30% at 50% 0%, rgba(255,210,150,.45), transparent 70%),
-    linear-gradient(180deg,
-      #8B6444 0%,#A07850 4%,#7A5538 30%,#5C3F28 48%,
-      #3D2818 50%,#2A1A0C 100%);
-}
+/* 三个馆切换不同插画 */
+.hall-overlay[data-hall="cat"]{    background-image:url('assets/hall_cat.png')}
+.hall-overlay[data-hall="fossil"]{ background-image:url('assets/hall_fossil.png')}
+.hall-overlay[data-hall="relic"]{  background-image:url('assets/hall_relic.png')}
 
-/* === 拱顶横梁 + 后墙木板纹（顶部装饰） === */
+/* 顶部柔光（让 UI 文字更清晰） */
 .hall-overlay::before{
-  content:"";position:absolute;left:0;right:0;top:0;height:50%;
-  background:
-    /* 三道横梁阴影（横向粗黑线模拟天花板梁） */
-    linear-gradient(180deg,
-      rgba(80,55,25,.45) 0,rgba(80,55,25,.45) 14px,
-      transparent 14px,transparent 18px,
-      rgba(80,55,25,.18) 18px,rgba(80,55,25,.18) 22px,
-      transparent 22px),
-    /* 墙面竖向木板纹 */
-    repeating-linear-gradient(90deg,
-      transparent 0,transparent 64px,
-      rgba(100,65,30,.1) 64px,rgba(100,65,30,.1) 65px),
-    /* 墙面横向横木腰线（一条更明显的） */
-    linear-gradient(180deg,
-      transparent 0,transparent 38%,
-      rgba(100,65,30,.18) 38%,rgba(100,65,30,.18) 40%,
-      transparent 40%);
-  pointer-events:none;
-  z-index:1;
+  content:"";position:absolute;left:0;right:0;top:0;height:130px;
+  background:linear-gradient(180deg,rgba(20,10,0,.45) 0%,rgba(20,10,0,.18) 70%,transparent 100%);
+  pointer-events:none;z-index:1;
 }
-
-/* === 等距地板：菱形棋盘格（核心视觉）=== */
+/* 底部柔光（让装饰条更清晰） */
 .hall-overlay::after{
-  content:"";position:absolute;left:-12%;right:-12%;top:48%;bottom:0;
-  /* 透视压扁 + 倾斜 = 菱形地砖 */
-  transform:perspective(800px) rotateX(54deg);
-  transform-origin:50% 0%;
-  background:
-    /* 木板地缝（横向） */
-    repeating-linear-gradient(0deg,
-      transparent 0,transparent 36px,
-      rgba(40,22,8,.35) 36px,rgba(40,22,8,.35) 37px),
-    /* 木板地缝（纵向） */
-    repeating-linear-gradient(90deg,
-      transparent 0,transparent 60px,
-      rgba(40,22,8,.25) 60px,rgba(40,22,8,.25) 61px),
-    /* 地板主色：暖橡木双色 */
-    linear-gradient(135deg,
-      #B98A55 0%,#A77846 50%,#8E6535 100%);
-  /* 渐隐到远端（远处暗一点更有空间感） */
-  mask-image:linear-gradient(180deg,rgba(0,0,0,.5) 0%,#000 30%,#000 100%);
-  -webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.5) 0%,#000 30%,#000 100%);
-  pointer-events:none;
-  z-index:0;
+  content:"";position:absolute;left:0;right:0;bottom:0;height:90px;
+  background:linear-gradient(0deg,rgba(20,10,0,.5) 0%,rgba(20,10,0,.18) 70%,transparent 100%);
+  pointer-events:none;z-index:1;
 }
-
-/* === 左右斜墙（梯形/侧壁，暗示房间立体）=== */
-/* 用 hall-overlay 上额外加两个伪元素位的方法不够，换用真实 div，定义在下方 */
 
 /* 关闭按钮（保持原位） */
 .hall-close{
@@ -698,28 +638,12 @@ html,body{margin:0;padding:0;background:#2A1F14;color:var(--ink);font-family:-ap
 
 body:has(.hall-overlay.show) .museum-btn{display:none}
 
-/* === 顶部展厅大标题（馆牌） === */
-.hall-title{
-  position:relative;z-index:2;
-  margin:18px auto 4px;padding:8px 28px;
-  background:linear-gradient(180deg,#5C4020,#3D2818);
-  color:#F4D5A8;
-  font-size:18px;font-weight:800;letter-spacing:4px;
-  border:2px solid #D4A574;border-radius:6px;
-  box-shadow:0 4px 12px rgba(0,0,0,.4),inset 0 0 12px rgba(0,0,0,.3);
-  text-shadow:0 1px 2px #000,0 0 8px rgba(255,200,100,.5);
-}
-.hall-title::before,.hall-title::after{
-  content:"";position:absolute;top:50%;width:8px;height:8px;
-  background:#D4A574;border:1px solid #5C4020;border-radius:50%;
-  transform:translateY(-50%);
-}
-.hall-title::before{left:6px}
-.hall-title::after{right:6px}
+/* === 顶部展厅大标题（馆牌）—— 已隐藏，由 tab 替代 === */
+.hall-title{display:none}
 
 /* === 门牌式 tab === */
 .hall-overlay .hall-tabs{
-  position:relative;z-index:2;
+  position:relative;z-index:3;
   display:flex;gap:8px;padding:8px 14px 4px 14px;justify-content:center;
 }
 .hall-tab{
@@ -756,230 +680,61 @@ body:has(.hall-overlay.show) .museum-btn{display:none}
 }
 .hall-tip b{color:#C2410C}
 
-/* === 展厅地面：伪等距 2.5D 卡通展厅 ===
- * 房间结构（自上而下）：
- *   远墙画框 → 远柜（小，靠墙） → 中央走道（地毯+访客）→ 近柜（大，前景）
- * 关键：用 perspective 让整体微倾，让远小近大成立 */
+/* === 展厅 UI 容器：左右两列贴墙布局，中央留白看背景图 === */
 .exhibits-grid{
-  position:relative;z-index:2;
+  position:relative;z-index:3;
   flex:1;
   overflow-y:auto;overflow-x:hidden;
-  display:flex;flex-direction:column;
-  padding:0;
+  display:flex;flex-direction:row;
+  align-items:stretch;
+  padding:6px 6px 8px;
+  gap:6px;
   background:transparent;
-  /* 整体从上向下的轻微透视，让远柜更显远 */
 }
+/* 旧装饰元素全部隐藏（DOM 还在） */
+.exhibits-grid .wall-side-r,
+.exhibits-grid .hall-far-label,
+.exhibits-grid .wall-deco,
+.museum-aisle .aisle-prop,
+.museum-aisle .aisle-label,
+.hall-entrance,
+.hall-exit{
+  display:none !important;
+}
+.exhibits-grid::before,
+.exhibits-grid::after{display:none !important}
 
-/* === 左右斜墙（梯形侧壁，强化立体房间感）=== */
-.exhibits-grid::before{
-  content:"";position:absolute;left:0;top:0;bottom:0;width:9%;
-  background:linear-gradient(90deg,
-    rgba(120,80,40,.55) 0%,
-    rgba(140,95,50,.35) 60%,
-    transparent 100%);
-  /* 斜切成梯形：上窄下宽 */
-  clip-path:polygon(0 0, 100% 18%, 100% 82%, 0 100%);
-  z-index:1;pointer-events:none;
-}
-.exhibits-grid::after{
-  /* 这个位置 ::after 用于英文标识，挪到 .hall-far-label */
-  display:none;
-}
-/* 右侧斜墙：单独 div 定位 */
-.exhibits-grid .wall-side-r{
-  position:absolute;right:0;top:0;bottom:0;width:9%;
-  background:linear-gradient(270deg,
-    rgba(120,80,40,.55) 0%,
-    rgba(140,95,50,.35) 60%,
-    transparent 100%);
-  clip-path:polygon(100% 0, 0 18%, 0 82%, 100% 100%);
-  z-index:1;pointer-events:none;
-}
-
-/* 远墙馆名标（隐约浮在墙上） */
-.exhibits-grid .hall-far-label{
-  position:absolute;left:0;right:0;top:8px;
-  text-align:center;
-  font-size:13px;font-weight:900;letter-spacing:6px;
-  color:rgba(80,55,28,.5);
-  text-shadow:0 1px 0 rgba(255,235,200,.7);
-  z-index:2;
-  pointer-events:none;
-}
-.exhibits-grid .hall-far-label::before{
-  content:"M U S E U M · 博物展厅";
-}
-
-/* === 远柜区：4 个小展柜横排，靠墙 === */
-.cases-row.far{
+/* === 左右两列展柜：贴墙摆放 === */
+.cases-col{
   position:relative;z-index:3;
-  display:flex;justify-content:center;align-items:flex-end;
-  gap:12px;
-  padding:34px 22px 8px;
-  /* 靠墙的轻微 perspective 让远柜显得"贴墙" */
-  transform:perspective(900px) rotateX(6deg);
-  transform-origin:50% 100%;
+  display:flex;flex-direction:column;
+  gap:8px;
+  width:108px;flex:0 0 108px;
+  padding:4px 2px;
 }
-.cases-row.far .exhibit-slot{
-  width:68px;
-  aspect-ratio:.7;
-  flex:0 0 68px;
+.cases-col.left{align-items:flex-start}
+.cases-col.right{align-items:flex-end}
+.cases-col .exhibit-slot{
+  width:104px;
+  aspect-ratio:.78;
+  flex:0 0 auto;
 }
-.cases-row.far .exhibit-slot .ex-label{font-size:9px;padding:1px 4px;letter-spacing:0}
-.cases-row.far .exhibit-slot .ex-cost{font-size:8px;margin-top:1px}
-.cases-row.far .exhibit-slot .ex-cost::before{font-size:8px}
-.cases-row.far .exhibit-slot .ex-icon{width:80%}
-.cases-row.far .exhibit-slot.action::after{
-  font-size:8px;padding:2px 5px;top:-6px;right:-2px;letter-spacing:0;
-}
+.cases-col .exhibit-slot .ex-label{font-size:11px}
+.cases-col .exhibit-slot .ex-cost{font-size:10px}
 
-/* === 中央走道：等距地毯（菱形） === */
+/* 中央舞台：留白让背景图主视觉露出 + 访客层在底部走动 */
 .museum-aisle{
   position:relative;z-index:2;
-  flex:1;
-  min-height:170px;
+  flex:1;min-width:0;
+  display:flex;flex-direction:column;justify-content:flex-end;
   background:transparent;
   overflow:visible;
 }
+/* 旧红地毯/标签去掉 */
+.museum-aisle::before,
+.museum-aisle::after{display:none !important}
 
-/* 红地毯（中央，等距菱形） */
-.museum-aisle::before{
-  content:"";
-  position:absolute;left:18%;right:18%;top:8%;bottom:6%;
-  background:
-    /* 地毯纹理：横向条纹 */
-    repeating-linear-gradient(0deg,
-      rgba(120,30,20,.18) 0,rgba(120,30,20,.18) 2px,
-      transparent 2px,transparent 14px),
-    linear-gradient(180deg,#A53B22 0%,#8B2A18 50%,#7A2010 100%);
-  /* 等距梯形：远端窄，近端宽（模拟透视消失点） */
-  clip-path:polygon(22% 0%, 78% 0%, 100% 100%, 0% 100%);
-  border:none;
-  box-shadow:
-    inset 0 4px 0 rgba(0,0,0,.2),
-    inset 0 -4px 0 rgba(0,0,0,.25);
-  z-index:0;pointer-events:none;
-  filter:drop-shadow(0 4px 6px rgba(0,0,0,.2));
-}
 
-/* 走道指示标签（隐约浮在地毯上） */
-.museum-aisle .aisle-label{
-  position:absolute;left:50%;top:22%;transform:translateX(-50%);
-  font-size:8px;letter-spacing:5px;font-weight:800;
-  color:rgba(255,235,180,.55);
-  pointer-events:none;z-index:2;
-}
-.museum-aisle .aisle-label::before{
-  content:"PROMENADE";
-}
-
-/* === 近柜区：4 个大展柜横排（前景） === */
-.cases-row.near{
-  position:relative;z-index:4;
-  display:flex;justify-content:center;align-items:flex-end;
-  gap:10px;
-  padding:14px 18px 18px;
-  filter:drop-shadow(0 8px 12px rgba(0,0,0,.4));
-}
-.cases-row.near .exhibit-slot{
-  width:106px;
-  aspect-ratio:.72;
-  flex:0 0 106px;
-}
-.cases-row.near .exhibit-slot .ex-label{font-size:11px}
-.cases-row.near .exhibit-slot .ex-cost{font-size:10px}
-
-/* === 装饰物：盆栽 / 灯柱 === */
-.aisle-prop{
-  position:absolute;bottom:8px;
-  z-index:3;pointer-events:none;
-}
-.aisle-prop.left{left:4%}
-.aisle-prop.right{right:4%}
-
-/* 盆栽：分层叶+陶罐 */
-.aisle-prop.plant{
-  width:32px;height:50px;
-}
-.aisle-prop.plant::before{
-  /* 叶片层：3 团绿色椭圆 */
-  content:"";position:absolute;
-  left:0;right:0;top:0;height:62%;
-  background:
-    radial-gradient(ellipse 10px 8px at 50% 14%,#3D7A3A 70%,transparent 80%),
-    radial-gradient(ellipse 9px 7px at 28% 28%,#4A8E45 70%,transparent 80%),
-    radial-gradient(ellipse 9px 7px at 72% 28%,#4A8E45 70%,transparent 80%),
-    radial-gradient(ellipse 8px 6px at 22% 50%,#5BA050 70%,transparent 80%),
-    radial-gradient(ellipse 8px 6px at 78% 50%,#5BA050 70%,transparent 80%),
-    radial-gradient(ellipse 8px 6px at 50% 60%,#6BBA60 70%,transparent 80%);
-  background-repeat:no-repeat;
-  filter:drop-shadow(0 1px 1px rgba(0,0,0,.35));
-}
-.aisle-prop.plant::after{
-  /* 陶罐 */
-  content:"";position:absolute;
-  left:18%;right:18%;bottom:0;height:42%;
-  background:linear-gradient(180deg,#C97548 0%,#9A4A28 100%);
-  border:1.5px solid #5C2510;
-  border-radius:2px 2px 6px 6px;
-  box-shadow:
-    inset 0 2px 0 rgba(255,200,140,.4),
-    inset 0 -2px 0 rgba(0,0,0,.25),
-    0 3px 4px rgba(0,0,0,.3);
-}
-
-/* 灯柱（替换原方案，加在走道两端可选） */
-.aisle-prop.lamp{
-  width:14px;height:60px;
-}
-.aisle-prop.lamp::before{
-  content:"";position:absolute;
-  left:50%;transform:translateX(-50%);
-  bottom:0;width:5px;height:80%;
-  background:linear-gradient(180deg,#5C4020,#3D2818);
-  border-radius:2px;
-  box-shadow:0 2px 4px rgba(0,0,0,.3);
-}
-.aisle-prop.lamp::after{
-  content:"";position:absolute;
-  left:50%;top:0;transform:translateX(-50%);
-  width:14px;height:14px;
-  background:radial-gradient(circle,#FFE3A3 30%,#FFB860 70%,#D4783A 100%);
-  border-radius:50%;
-  border:1.5px solid #5C2510;
-  box-shadow:0 0 12px rgba(255,200,100,.7),0 2px 3px rgba(0,0,0,.4);
-}
-
-/* === 远墙画框（挂在墙上，立体感）=== */
-.wall-deco{
-  position:absolute;top:14%;
-  width:36px;height:28px;
-  background:linear-gradient(180deg,#FBF4E8,#E8C99A);
-  border:2px solid #5C2510;
-  border-radius:2px;
-  z-index:2;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.5),
-    inset 0 -1px 0 rgba(0,0,0,.2),
-    0 3px 6px rgba(0,0,0,.4);
-  /* 微微透视：左侧画框朝右倾，右侧朝左倾，强化立体 */
-}
-.wall-deco::before{
-  content:"";position:absolute;inset:3px;
-  background:linear-gradient(135deg,#C2410C 0%,#8B2510 100%);
-  opacity:.7;
-  border-radius:1px;
-}
-.wall-deco::after{
-  /* 画框金钉 */
-  content:"";position:absolute;top:-3px;left:50%;transform:translateX(-50%);
-  width:4px;height:4px;background:#D4A574;border-radius:50%;
-  box-shadow:0 1px 1px rgba(0,0,0,.4);
-}
-.wall-deco.l1{left:4%;transform:perspective(300px) rotateY(18deg)}
-.wall-deco.l2{left:22%;width:30px;height:24px;top:11%}
-.wall-deco.r1{right:4%;transform:perspective(300px) rotateY(-18deg)}
-.wall-deco.r2{right:22%;width:30px;height:24px;top:11%}
 
 /* === 玻璃展柜（立体盒子核心组件） ===
  * 结构（视觉自上而下）：
@@ -1850,33 +1605,16 @@ body:has(.merge-panel:not(.collapsed)) .commissions{display:none}
       <span>人气</span>
       <span class="pop-count" id="pop-count">0</span>
     </div>
-    <!-- 伪等距 2.5D 卡通博物馆：远墙 → 远柜 → 走道 → 近柜 -->
+    <!-- 展厅 UI：左右两列贴墙摆放展柜，中央留白看背景图 -->
     <div class="exhibits-grid" id="exhibits-grid">
-      <!-- 右侧斜墙（左斜墙用 ::before） -->
-      <div class="wall-side-r"></div>
-      <!-- 远墙隐约馆名 -->
-      <div class="hall-far-label"></div>
-      <!-- 远墙画框装饰（带透视感） -->
-      <div class="wall-deco l1"></div>
-      <div class="wall-deco l2"></div>
-      <div class="wall-deco r1"></div>
-      <div class="wall-deco r2"></div>
-      <!-- 远柜区：4 个小展柜靠墙 -->
-      <div class="cases-row far" id="cases-far"></div>
-      <!-- 中央走道：访客层 + 装饰 -->
+      <!-- 左列：展柜 1-4 -->
+      <div class="cases-col left" id="cases-left"></div>
+      <!-- 中央舞台：访客层在此走动 -->
       <div class="museum-aisle" id="museum-aisle">
-        <!-- 走道地毯英文标签 -->
-        <div class="aisle-label"></div>
-        <div class="aisle-prop plant left"></div>
-        <div class="aisle-prop plant right"></div>
-        <!-- 访客系统：参观猫层 -->
         <div class="visitors-floor" id="visitors-floor"></div>
-        <!-- 入口（左侧门）+ 出口（右侧门）-->
-        <div class="hall-entrance" id="hall-entrance"></div>
-        <div class="hall-exit" id="hall-exit"></div>
       </div>
-      <!-- 近柜区：4 个大展柜近镜头 -->
-      <div class="cases-row near" id="cases-near"></div>
+      <!-- 右列：展柜 5-8 -->
+      <div class="cases-col right" id="cases-right"></div>
     </div>
     <div class="hall-decor-bar" id="hall-decor-bar"></div>
   </div>
@@ -1906,6 +1644,6 @@ body:has(.merge-panel:not(.collapsed)) .commissions{display:none}
 
 </div>
 
-<script src="game.js?v=woodui20260531-v19"></script>
+<script src="game.js?v=woodui20260531-v20"></script>
 </body>
 </html>
