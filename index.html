@@ -18,16 +18,90 @@ html,body{margin:0;padding:0;background:#2A1F14;color:var(--ink);font-family:-ap
 /* ============ 背景层：博物馆永久背景 ============ */
 .museum-bg{
   position:absolute;inset:0;z-index:1;
-  background-image:url('assets/museum_bg.png');
+  background-image:url('assets/museum_bg_v2.png');
   background-size:cover;background-position:center;
   transition:filter .4s, transform .4s;
 }
 .museum-bg.dimmed{filter:blur(2px) brightness(.92) saturate(.85)}
 .museum-bg::after{
   content:"";position:absolute;inset:0;
-  background:linear-gradient(180deg,rgba(251,246,238,.15) 0%,rgba(251,246,238,.4) 60%,rgba(251,246,238,.7) 100%);
+  background:linear-gradient(180deg,rgba(251,246,238,.08) 0%,rgba(251,246,238,.22) 60%,rgba(251,246,238,.5) 100%);
   pointer-events:none;
 }
+
+/* ============ 博物馆 3 大展区点击/状态层 ============ */
+.hall-zones{
+  position:absolute;inset:0;z-index:2;
+  display:flex;
+  pointer-events:none; /* 容器不拦截，子元素自己拦 */
+}
+.hall-zone{
+  flex:1;position:relative;
+  pointer-events:auto;
+  cursor:pointer;
+  transition:filter .25s, transform .25s;
+}
+.hall-zone:active{transform:scale(.985)}
+/* 未解锁：灰化 + 暗化 + 锁覆盖 */
+.hall-zone.locked{
+  cursor:not-allowed;
+  filter:grayscale(.85) brightness(.55) saturate(.4);
+}
+.hall-zone.locked::before{
+  content:"";position:absolute;inset:0;
+  background:rgba(20,15,10,.32);
+  pointer-events:none;
+}
+/* 已解锁：发光描边（仅当面板收起时显示） */
+.museum-bg:not(.dimmed) .hall-zone.unlocked::after{
+  content:"";position:absolute;inset:6px;
+  border:2px solid rgba(255,210,140,.55);
+  border-radius:14px;
+  box-shadow:0 0 18px rgba(255,200,120,.35), inset 0 0 24px rgba(255,220,160,.18);
+  pointer-events:none;
+  animation:hallGlow 2.6s ease-in-out infinite;
+}
+@keyframes hallGlow{
+  0%,100%{opacity:.55}
+  50%{opacity:1}
+}
+/* 区块底部名牌 */
+.hall-zone .hz-tag{
+  position:absolute;left:50%;bottom:14%;transform:translateX(-50%);
+  background:rgba(255,250,240,.95);
+  border:1.5px solid rgba(160,120,80,.4);
+  border-radius:10px;
+  padding:5px 12px;
+  font-size:13px;font-weight:700;
+  color:#5a3a1a;
+  white-space:nowrap;
+  box-shadow:0 3px 8px rgba(80,40,20,.18);
+  pointer-events:none;
+}
+.hall-zone.locked .hz-tag{
+  background:rgba(40,30,20,.85);
+  color:#ffd99a;
+  border-color:rgba(255,210,140,.45);
+}
+.hall-zone .hz-lock{
+  position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);
+  font-size:38px;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.6));
+  pointer-events:none;
+}
+.hall-zone .hz-req{
+  position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);
+  background:rgba(40,30,20,.92);
+  color:#ffd99a;
+  border:1.5px solid rgba(255,210,140,.55);
+  border-radius:8px;
+  padding:4px 10px;
+  font-size:12px;font-weight:700;
+  white-space:nowrap;
+  pointer-events:none;
+}
+/* 棋盘展开时（dimmed），区块层弱化 */
+.museum-bg.dimmed .hall-zones{opacity:.4;pointer-events:none}
 
 /* ============ 卡通布偶猫组件（SVG 版）============
  * 用法：<div class="kitty walk face-r" style="--size:88px"></div>
@@ -1677,7 +1751,14 @@ body:has(.merge-panel:not(.collapsed)) .commissions{display:none}
 <div id="app">
 
   <!-- 永久背景：博物馆 + 布偶猫（SVG 由 JS 注入） -->
-  <div class="museum-bg" id="museum-bg"></div>
+  <div class="museum-bg" id="museum-bg">
+    <!-- 3 大展区点击/状态层（左:猫咪馆 / 中:自然馆 / 右:古董馆） -->
+    <div class="hall-zones" id="hall-zones">
+      <div class="hall-zone" data-hall="cat"></div>
+      <div class="hall-zone" data-hall="fossil"></div>
+      <div class="hall-zone" data-hall="relic"></div>
+    </div>
+  </div>
   <div class="cat-wander kitty walk face-r" id="cat-wander" style="--size:96px"></div>
 
   <!-- 背景层展位（虚化时显示一排小展品） -->
@@ -1825,6 +1906,6 @@ body:has(.merge-panel:not(.collapsed)) .commissions{display:none}
 
 </div>
 
-<script src="game.js?v=woodui20260531-v18"></script>
+<script src="game.js?v=woodui20260531-v19"></script>
 </body>
 </html>

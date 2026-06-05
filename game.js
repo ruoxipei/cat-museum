@@ -2022,6 +2022,44 @@ function renderBgExhibits(){
     }
     $bg.appendChild(slot);
   });
+  renderHallZones();
+}
+
+// ---------- 博物馆全貌 3 大展区状态层 ----------
+function renderHallZones(){
+  const $zones = document.getElementById('hall-zones');
+  if (!$zones) return;
+  Object.entries(HALLS).forEach(([key, h]) => {
+    const $zone = $zones.querySelector(`.hall-zone[data-hall="${key}"]`);
+    if (!$zone) return;
+    const unlocked = !!state.unlocked[key];
+    $zone.classList.toggle('unlocked', unlocked);
+    $zone.classList.toggle('locked', !unlocked);
+    if (unlocked){
+      $zone.innerHTML = `<div class="hz-tag">${h.name}</div>`;
+    } else {
+      $zone.innerHTML = `
+        <div class="hz-lock">🔒</div>
+        <div class="hz-req">馆长 Lv.${h.unlockLv} 解锁</div>
+        <div class="hz-tag">${h.name}</div>
+      `;
+    }
+    $zone.onclick = () => {
+      if (!unlocked){
+        toast(`馆长达到 Lv.${h.unlockLv} 即可解锁「${h.name}」`);
+        return;
+      }
+      // 已解锁 → 切到该展厅 + 打开博物馆面板
+      state.currentHall = key;
+      setPanelCollapsed(true);
+      const $ho = document.getElementById('hall-overlay');
+      if ($ho){
+        $ho.classList.add('show');
+        renderMuseum();
+        setTimeout(onHallChanged, 200);
+      }
+    };
+  });
 }
 
 // ---------- HUD ----------
