@@ -1071,7 +1071,7 @@ let state = {
   unlocked: { cat:true, fossil:false, relic:false },
   currentHall: 'cat',
   panelCollapsed: false,
-  tutorial: { step: 0, done: false },
+  tutorial: { step: 0, done: true }, // 开局即开放所有功能（含委托卡）
   stats: { tapCount: 0, mergeCount: 0, orderDone: 0 },
   // === 经营玩法新字段 ===
   // 每个馆已购买的展柜数（默认 6，最多扩到 12）
@@ -1782,11 +1782,6 @@ function commissionCatHead(cat){
 function renderCommissions(){
   const root = document.getElementById('commissions');
   if (!root) return;
-  // 教程未完成时不展示（避免开局就出现委托干扰新手引导）
-  if (!state.tutorial.done){
-    root.innerHTML = '';
-    return;
-  }
   let html = '';
   state.commissions.forEach((cm, idx) => {
     const ready = isCommissionReady(cm);
